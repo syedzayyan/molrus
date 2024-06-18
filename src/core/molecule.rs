@@ -43,6 +43,35 @@ impl Molecule {
             current_edge_index: first_outgoing_edge,
         }
     }
+    pub fn get_num_bonds(&self, atom_index: AtomIndex) -> f32 {
+        let mut bond_sum = 0.0;
+        let neighbours = self.neighbours(atom_index);
+    
+        for neighbour_index in neighbours {
+            let bond_index = self.atoms[atom_index]
+                .outgoing_bond
+                .and_then(|edge_num| {
+                    let mut current_edge_index = Some(edge_num);
+                    while let Some(edge_num) = current_edge_index {
+                        let bond = &self.bonds[edge_num];
+                        if bond.target == neighbour_index {
+                            return Some(edge_num);
+                        }
+                        current_edge_index = bond.next_outgoing_bond;
+                    }
+                    None
+                });
+    
+            if let Some(bond_index) = bond_index {
+                let bond = &self.bonds[bond_index];
+                bond_sum += bond.bond_data.bond_type.get_bond_order();
+            }
+        }
+        bond_sum
+    }
+    pub fn h_count_update(&mut self, atom_index: AtomIndex, h_count: u8) {
+        self.atoms[atom_index].atom_data.h_count_update(h_count);
+    }
 }
 
 pub struct Neighbours<'molecule> {

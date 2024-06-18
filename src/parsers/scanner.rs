@@ -25,7 +25,16 @@ impl Scanner {
     pub fn peek(&self) -> Option<&char> {
         self.characters.get(self.cursor)
     }
+    pub fn back(&mut self) -> Option<&char> {
+        match self.characters.get(self.cursor) {
+            Some(result) => {
+                self.cursor = self.cursor - 1;
 
+                Some(result)
+            },
+            None => None
+        }
+    }
     pub fn pop(&mut self) -> Option<&char> {
         match self.characters.get(self.cursor) {
             Some(result) => {

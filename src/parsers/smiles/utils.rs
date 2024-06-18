@@ -190,19 +190,15 @@ fn fifteen(scanner: &mut Scanner) -> Option<i8> {
 
 pub fn read_bond(scanner: &mut Scanner) -> BondType {
     let result = match scanner.peek() {
-        Some('-') => BondType::Single,
-        Some('=') => BondType::Double,
-        Some('#') => BondType::Triple,
-        Some('$') => BondType::Quadruple,
-        Some(':') => BondType::Aromatic,
-        Some('/') => BondType::Up,
-        Some('\\') => BondType::Down,
-        _ => BondType::Elided
+        Some('-') => {scanner.pop(); BondType::Single},
+        Some('=') => {scanner.pop(); BondType::Double},
+        Some('#') => {scanner.pop(); BondType::Triple},
+        Some('$') => {scanner.pop(); BondType::Quadruple},
+        Some(':') => {scanner.pop(); BondType::Aromatic},
+        Some('/') => {scanner.pop(); BondType::Up},
+        Some('\\') =>{scanner.pop();  BondType::Down},
+        _ => BondType::Single
     };
-
-    if result != BondType::Elided {
-        scanner.pop();
-    }
     result
 }
 

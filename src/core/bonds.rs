@@ -1,6 +1,5 @@
 #[derive(PartialEq, Clone, Debug)] 
 pub enum BondType {
-    Elided,
     Single,
     Double,
     Triple,
@@ -30,7 +29,6 @@ impl BondType {
     /// Everything else returns self.
     pub fn reverse(&self) -> Self {
         match self {
-            Self::Elided => Self::Elided,
             Self::Single => Self::Single,
             Self::Double => Self::Double,
             Self::Triple => Self::Triple,
@@ -38,6 +36,18 @@ impl BondType {
             Self::Aromatic => Self::Aromatic,
             Self::Up => Self::Down,
             Self::Down => Self::Up
+        }
+    }
+
+    pub fn get_bond_order(&self) -> f32{
+        match self {
+            Self::Single => 1.0,
+            Self::Double => 2.0,
+            Self::Triple => 3.0,
+            Self::Quadruple => 4.0,
+            Self::Aromatic => 1.5,
+            Self::Up => 2.0,
+            Self::Down => 2.0
         }
     }
 }

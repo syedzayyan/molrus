@@ -1913,6 +1913,31 @@ impl Element {
                 | Element::At
         )
     }
+    pub fn valence_electrons(&self) -> i32 {
+        let mut result = self.atomic_number();
+
+        if let Some(core) = self.core() {
+            result -= core.atomic_number();
+        }
+        result
+    }
+    fn core(&self) -> Option<Self> {
+        if self.atomic_number() < 3 {
+            None
+        } else if self.atomic_number() < 11 {
+            Some(Element::He)
+        } else if self.atomic_number() < 19 {
+            Some(Element::Ne)
+        } else if self.atomic_number() < 37 {
+            Some(Element::Ar)
+        } else if self.atomic_number() < 55 {
+            Some(Element::Kr)
+        } else if self.atomic_number() < 87 {
+            Some(Element::Xe)
+        } else {
+            Some(Element::Rn)
+        }
+    }
 }
 
 impl Display for Element {
