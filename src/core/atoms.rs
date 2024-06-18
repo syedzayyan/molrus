@@ -20,6 +20,8 @@ pub struct AtomData {
     pub ring: bool,
     // The symmetry class of the atom
     pub symmetry_class: u8,
+    // 3D Coords
+    pub coords_3d: Option<(f64, f64, f64)>
 }
 
 impl AtomData {
@@ -38,8 +40,9 @@ impl AtomData {
 }
 
 pub type AtomIndex = usize;
-
+#[derive(Clone)]
 pub struct Atom {
+    pub index: AtomIndex,
     pub outgoing_bond: Option<BondIndex>,
     pub atom_data: AtomData,
 }

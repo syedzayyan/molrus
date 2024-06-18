@@ -1,4 +1,4 @@
-fn djb2_hash(input: &str) -> u64 {
+pub fn djb2_hash(input: &str) -> u64 {
     let mut hash: u64 = 5381;
     let chars = input.chars();
     

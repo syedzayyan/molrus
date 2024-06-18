@@ -1,8 +1,8 @@
-use super::utils::{read_bond, read_bracket, read_organic, read_star};
+use super::utils::{read_axial, read_bond, read_bracket, read_organic, read_star};
 use crate::{
     core::{
         atoms::{AtomData, AtomIndex},
-        bonds::{BondData, BondType},
+        bonds::BondData,
         molecule::Molecule,
     },
     parsers::{
@@ -27,6 +27,7 @@ fn parse_atom(scanner: &mut Scanner) -> Result<AtomData, Error> {
             configuration: None,
             ring: false,
             symmetry_class: 0,
+            coords_3d : None
         };
         return Ok(atom_data);
     }
@@ -55,18 +56,18 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
                 prev_atom = branch_points.pop_back().unwrap_or(None);
                 scanner.pop();
             }
+            Some('.') => {
+                prev_atom = None; // Reset prev_atom to handle disconnected fragments
+                scanner.pop();
+            }
             _ => {}
         }
 
-        let mut bond_type = read_bond(&mut scanner);
         let mut atom_data = parse_atom(&mut scanner)?;
+        let mut bond_order = read_bond(&mut scanner);
+        let bond_axialness = read_axial(&mut scanner);
 
-        if atom_data.aromatic == true {
-            bond_type = BondType::Aromatic;
-        }
-
-        // h_count implementation
-        // 
+        if atom_data.aromatic { bond_order = 1.5 };
 
         let mut curr_index: Option<usize> = None;  
         // Handle ring closures first
@@ -79,7 +80,8 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
 
             if let Some(other_atom) = ring_closures.remove(&ring_number) {
                 let bond_data = BondData {
-                    bond_type: bond_type.clone(),
+                    bond_order : bond_order,
+                    axialness : bond_axialness,
                     ring: true,
                 };
                 molecule.add_bond(other_atom, curr_index.unwrap(), bond_data);
@@ -97,7 +99,8 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
         // Handle normal atom connections
         if let Some(prev) = prev_atom {
             let bond_data = BondData {
-                bond_type: bond_type.clone(),
+                bond_order: bond_order,
+                axialness : bond_axialness,
                 ring: false,
             };
             molecule.add_bond(prev, curr_index.unwrap(), bond_data);
