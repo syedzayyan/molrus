@@ -2,7 +2,7 @@ use super::configuration::Configuration;
 use super::{bonds::BondIndex, mendeleev::Element};
 
 // Defines properties of a atom
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AtomData {
     /// The element of the atom.
     pub element: Element,

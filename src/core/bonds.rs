@@ -1,3 +1,5 @@
+use super::atoms::AtomIndex;
+
 #[derive(PartialEq, Clone, Debug)] 
 pub struct BondData {
     pub ring: bool,
@@ -9,7 +11,7 @@ pub type BondIndex = usize;
 
 #[derive(PartialEq, Clone)]
 pub struct Bond {
-    pub target: BondIndex,
+    pub target: AtomIndex,
     pub next_outgoing_bond: Option<BondIndex>,
     pub bond_data: BondData
 }

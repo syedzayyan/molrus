@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Configuration {
     // Allene-like
     AL1, AL2,

@@ -16,7 +16,6 @@ fn parse_atom(scanner: &mut Scanner) -> Result<AtomData, Error> {
     if let Some(bracket_atom) = read_bracket(scanner)? {
         return Ok(bracket_atom);
     }
-
     if let Some((element, aromatic)) = read_organic(scanner)? {
         let atom_data = AtomData {
             element,
@@ -31,7 +30,6 @@ fn parse_atom(scanner: &mut Scanner) -> Result<AtomData, Error> {
         };
         return Ok(atom_data);
     }
-
     if let Some(unknown_atom) = read_star(scanner)? {
         return Ok(unknown_atom);
     }
@@ -63,10 +61,9 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
             _ => {}
         }
 
-        let mut atom_data = parse_atom(&mut scanner)?;
         let mut bond_order = read_bond(&mut scanner);
         let bond_axialness = read_axial(&mut scanner);
-
+        let mut atom_data = parse_atom(&mut scanner)?;
         if atom_data.aromatic { bond_order = 1.5 };
 
         let mut curr_index: Option<usize> = None;  
@@ -95,6 +92,7 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
         } else {
             curr_index = Some(molecule.add_atom(atom_data));
         }
+
 
         // Handle normal atom connections
         if let Some(prev) = prev_atom {
