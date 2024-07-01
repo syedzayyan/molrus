@@ -2,7 +2,7 @@
 
 MOLRUS is an open-source library for Cheminformatics written in Rust. The plans for the future are to support all these.
 
-![Molrus]("molrus.png")
+![Molrus](molrus.png)
 
 - [ ] Molecule and reaction valence bond representation.
 - [ ] Read and write file formats: 
