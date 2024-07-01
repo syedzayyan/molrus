@@ -51,7 +51,20 @@ pub fn missing_character(scanner: &mut Scanner) -> Error {
     if scanner.is_done() {
         Error::EndOfLine
     } else {
-        println!("Missing Characters: {} {} {}", scanner.characters[scanner.cursor() - 1], scanner.characters[scanner.cursor()], scanner.characters[scanner.cursor() + 1]);
+        println!("Missing Characters: {}", 
+        scanner.characters[scanner.cursor()], 
+        );
+        Error::Character(scanner.cursor())
+    }
+}
+
+pub fn defined_error(scanner: &mut Scanner, error_string: &str) -> Error {
+    if scanner.is_done() {
+        Error::EndOfLine
+    } else {
+        println!("Error at {} and it probably is because: {}", 
+        scanner.characters[scanner.cursor()], error_string
+        );
         Error::Character(scanner.cursor())
     }
 }

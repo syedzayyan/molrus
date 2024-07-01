@@ -1,15 +1,8 @@
-use crate::{
-    core::{atoms::AtomData, mendeleev::Element},
-    parsers::{
-        elements::read_symbol,
-        error::Error,
-        scanner::{missing_character, Scanner},
-    },
-};
+use crate::{core::{defs::Atom, mendeleev::Element}, parsers::{elements::read_symbol, error::Error, scanner::{missing_character, Scanner}}};
 
 use super::config::read_configuration;
 
-pub fn read_bracket(scanner: &mut Scanner) -> Result<Option<AtomData>, Error> {
+pub fn read_bracket(scanner: &mut Scanner) -> Result<Option<Atom>, Error> {
     if let Some('[') = scanner.peek() {
         scanner.pop();
     } else {
@@ -37,12 +30,13 @@ pub fn read_bracket(scanner: &mut Scanner) -> Result<Option<AtomData>, Error> {
         Some(']') => {
             scanner.pop();
 
-            Ok(Some(AtomData {
+            Ok(Some(Atom {
                 element: symbol,
-                hydrogens: hcount.unwrap(),
+                outgoing_bond: Vec::new(),
+                hydrogens: hcount,
                 aromatic: aromatic,
                 symmetry_class: 0,
-                f_charge: charge.unwrap(),
+                f_charge: charge,
                 isotope: isotope,
                 configuration: configuration,
                 ring: false,
@@ -54,33 +48,32 @@ pub fn read_bracket(scanner: &mut Scanner) -> Result<Option<AtomData>, Error> {
     }
 }
 
-fn read_hcount(scanner: &mut Scanner) -> Result<Option<u8>, Error> {
+fn read_hcount(scanner: &mut Scanner) -> Result<u8, Error> {
     match scanner.peek() {
         Some('H') => {
             scanner.pop();
-
             match scanner.peek() {
                 Some('0'..='9') => match scanner.pop() {
-                    Some('0') => Ok(Some(0)),
-                    Some('1') => Ok(Some(1)),
-                    Some('2') => Ok(Some(2)),
-                    Some('3') => Ok(Some(3)),
-                    Some('4') => Ok(Some(4)),
-                    Some('5') => Ok(Some(5)),
-                    Some('6') => Ok(Some(6)),
-                    Some('7') => Ok(Some(7)),
-                    Some('8') => Ok(Some(8)),
-                    Some('9') => Ok(Some(9)),
-                    _ => Ok(Some(1)),
+                    Some('0') => Ok(0),
+                    Some('1') => Ok(1),
+                    Some('2') => Ok(2),
+                    Some('3') => Ok(3),
+                    Some('4') => Ok(4),
+                    Some('5') => Ok(5),
+                    Some('6') => Ok(6),
+                    Some('7') => Ok(7),
+                    Some('8') => Ok(8),
+                    Some('9') => Ok(9),
+                    _ => Ok(1),
                 },
-                _ => Ok(Some(1)),
+                _ => Ok(0),
             }
         }
-        _ => Ok(Some(1)),
+        _ => Ok(0),
     }
 }
 
-fn read_isotope(scanner: &mut Scanner) -> Result<Option<i8>, Error> {
+fn read_isotope(scanner: &mut Scanner) -> Result<i8, Error> {
     let mut digits = String::new();
 
     for _ in 0..3 {
@@ -91,9 +84,9 @@ fn read_isotope(scanner: &mut Scanner) -> Result<Option<i8>, Error> {
     }
 
     if digits.is_empty() {
-        Ok(None)
+        Ok(0)
     } else {
-        Ok(Some(digits.parse::<i8>().unwrap()))
+        Ok(digits.parse::<i8>().unwrap())
     }
 }
 
@@ -127,20 +120,20 @@ fn read_isotope(scanner: &mut Scanner) -> Result<Option<i8>, Error> {
 //     }
 // }
 
-pub fn read_charge(scanner: &mut Scanner) -> Result<Option<i8>, Error> {
+pub fn read_charge(scanner: &mut Scanner) -> Result<i8, Error> {
     match scanner.peek() {
         Some('+') => {
             scanner.pop();
 
             match fifteen(scanner) {
-                Some(value) => Ok(Some(value.try_into().expect("charge"))),
+                Some(value) => Ok(value.try_into().expect("charge")),
                 None => match scanner.peek() {
                     Some('+') => {
                         scanner.pop();
 
-                        Ok(Some(2))
+                        Ok(2)
                     }
-                    _ => Ok(Some(1)),
+                    _ => Ok(1),
                 },
             }
         }
@@ -148,18 +141,18 @@ pub fn read_charge(scanner: &mut Scanner) -> Result<Option<i8>, Error> {
             scanner.pop();
 
             match fifteen(scanner) {
-                Some(value) => Ok(Some((-value).try_into().expect("charge"))),
+                Some(value) => Ok((-value).try_into().expect("charge")),
                 None => match scanner.peek() {
                     Some('-') => {
                         scanner.pop();
 
-                        Ok(Some(-2))
+                        Ok(-2)
                     }
-                    _ => Ok(Some(-1)),
+                    _ => Ok(-1),
                 },
             }
         }
-        _ => Ok(Some(0)),
+        _ => Ok(0),
     }
 }
 
@@ -234,14 +227,15 @@ pub fn read_axial(scanner: &mut Scanner) -> i32 {
 }
 
 // <star> = "*"
-pub fn read_star(scanner: &mut Scanner) -> Result<Option<AtomData>, Error> {
+pub fn read_star(scanner: &mut Scanner) -> Result<Option<Atom>, Error> {
     match scanner.peek() {
         Some('*') => {
             scanner.pop();
 
-            Ok(Some(AtomData {
+            Ok(Some(Atom {
                 element: Element::Unknown,
-                isotope: None,
+                outgoing_bond: Vec::new(),
+                isotope: 0,
                 hydrogens: 0,
                 aromatic: false,
                 f_charge: 0,

@@ -5,8 +5,8 @@
 #![allow(unused_variables)]
 #![allow(unreachable_patterns)]
 
-use fingerprints::ecfp::ecfp;
-use parsers::smiles::smiles::parse_smiles;
+// use fingerprints::ecfp::ecfp;
+use parsers::daylight::smiles::parse_smiles;
 
 mod core;
 mod parsers;
@@ -17,8 +17,8 @@ fn main (){
     println!("Hello World");
     
     let mol = parse_smiles("C1=NC(=C2C(=N1)N(C=N2)[C@H]3[C@@H]([C@@H]([C@H](O3)CO)O)O)N").unwrap();
-    let ecfps: std::collections::HashSet<u64> = ecfp(mol.clone());
+    // let ecfps: std::collections::HashSet<u64> = ecfp(mol.clone());
 
     println!("{:?}", mol.atoms.len());
-    println!("{:?}", ecfps);
+    // println!("{:?}", ecfps);
 }
