@@ -34,6 +34,7 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
     let mut prev_atom: Option<usize> = None;
     let mut ring_closures: HashMap<u8, usize> = HashMap::new();
     let mut branch_points: VecDeque<usize> = VecDeque::new();
+    let mut last_aromatic_bond_order = 1;
 
     while let Some(_) = scanner.peek() {
         match scanner.peek() {
@@ -52,7 +53,7 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
             _ => {}
         }
 
-        let bond_order = read_bond(&mut scanner);
+        let mut bond_order = read_bond(&mut scanner);
         let bond_axialness = read_axial(&mut scanner);
         let atom_data = parse_atom(&mut scanner)?;
         let aromatic = atom_data.aromatic;
@@ -67,12 +68,20 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
             let ring_number = digit as u8;
 
             if let Some(other_atom) = ring_closures.remove(&ring_number) {
+                let mut bond_order = bond_order as i8;
+                // Check if both atoms are aromatic
+                if aromatic && molecule.atoms[other_atom].aromatic {
+                    // Use alternating bond orders for aromatic bonds
+                    bond_order = last_aromatic_bond_order;
+                    last_aromatic_bond_order = if last_aromatic_bond_order == 1 { 2 } else { 1 };
+                }
                 let bond = Bond {
                     source: other_atom,
                     dest: curr_index,
                     arom: aromatic,
                     ring: true,
-                    bond_order: bond_order as i8,
+                    bond_order: bond_order,
+                    axialness : bond_axialness.clone()
                 };
                 molecule.add_bond(bond);
             } else {
@@ -80,33 +89,30 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
             }
         }
 
-        // Handle normal atom connections
-        if let Some(prev) = prev_atom {
+        if let Some(last_atom) = prev_atom {
+            if aromatic && molecule.atoms[last_atom].aromatic {
+                // Use alternating bond orders for aromatic bonds
+                bond_order = last_aromatic_bond_order;
+                last_aromatic_bond_order = if last_aromatic_bond_order == 1 { 2 } else { 1 };
+            }
             let bond = Bond {
-                source: prev,
+                source: last_atom,
                 dest: curr_index,
                 arom: aromatic,
                 ring: false,
                 bond_order: bond_order as i8,
+                axialness : bond_axialness
             };
             molecule.add_bond(bond);
 
-            // Update h-count
-            let prev_atom_valency = molecule.atoms[prev].element.valence_electrons();
-            let number_of_bonds = molecule.bonds.iter().filter(|b| b.source == prev || b.dest == prev).count();
-            let modified_h_count = prev_atom_valency as i8 - number_of_bonds as i8;
-            molecule.h_count_update(prev, modified_h_count.max(0) as u8);
+            // Update H Count for the last atom
+            let last_atom_valency = molecule.atoms[last_atom].element.valence_electrons();
+            let number_of_bonds = molecule.bonds.iter().filter(|b| b.source == last_atom || b.dest == last_atom).count();
+            let modified_h_count = last_atom_valency as i8 - number_of_bonds as i8;
+            molecule.h_count_update(last_atom, modified_h_count.max(0) as u8);
         }
 
         prev_atom = Some(curr_index);
-    }
-
-    // Update h-count for the last atom
-    if let Some(last_atom) = prev_atom {
-        let last_atom_valency = molecule.atoms[last_atom].element.valence_electrons();
-        let number_of_bonds = molecule.bonds.iter().filter(|b| b.source == last_atom || b.dest == last_atom).count();
-        let modified_h_count = last_atom_valency as i8 - number_of_bonds as i8;
-        molecule.h_count_update(last_atom, modified_h_count.max(0) as u8);
     }
 
     Ok(molecule)

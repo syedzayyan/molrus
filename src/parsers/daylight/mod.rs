@@ -1,4 +1,5 @@
 pub mod smiles;
 pub mod config;
-pub mod utils;
+mod utils;
 pub mod smarts;
+mod smarts_defs;

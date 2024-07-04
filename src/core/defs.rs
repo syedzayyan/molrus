@@ -53,4 +53,12 @@ pub struct Bond {
     pub arom: bool,
     pub ring: bool,
     pub bond_order: i8,
+    pub axialness: Axialness,
+}
+
+#[derive(PartialEq, Clone)]
+pub enum Axialness {
+    UP,
+    DOWN,
+    UNKNOWN,
 }

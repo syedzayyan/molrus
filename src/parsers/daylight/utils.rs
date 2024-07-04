@@ -1,4 +1,4 @@
-use crate::{core::{defs::Atom, mendeleev::Element}, parsers::{elements::read_symbol, error::Error, scanner::{missing_character, Scanner}}};
+use crate::{core::{defs::{Atom, Axialness}, mendeleev::Element}, parsers::{elements::read_symbol, error::Error, scanner::{missing_character, Scanner}}};
 
 use super::config::read_configuration;
 
@@ -184,44 +184,44 @@ fn fifteen(scanner: &mut Scanner) -> Option<i8> {
     }
 }
 
-pub fn read_bond(scanner: &mut Scanner) -> f32 {
+pub fn read_bond(scanner: &mut Scanner) -> i8 {
     let result = match scanner.peek() {
         Some('-') => {
             scanner.pop();
-            1.0
+            1
         }
         Some('=') => {
             scanner.pop();
-            2.0
+            2
         }
         Some('#') => {
             scanner.pop();
-            3.0
+            3
         }
         Some('$') => {
             scanner.pop();
-            4.0
+            4
         }
         Some(':') => {
             scanner.pop();
-            1.5
+            1
         }
-        _ => 1.0,
+        _ => 1,
     };
     result
 }
 
-pub fn read_axial(scanner: &mut Scanner) -> i32 {
+pub fn read_axial(scanner: &mut Scanner) -> Axialness {
     let result = match scanner.peek() {
         Some('/') => {
             scanner.pop();
-            1
+            Axialness::UP
         }
         Some('\\') => {
             scanner.pop();
-            0
+            Axialness::UP
         }
-        _ => 2,
+        _ => Axialness::UNKNOWN,
     };
     result
 }
