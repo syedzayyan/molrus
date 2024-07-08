@@ -1,4 +1,4 @@
-use crate::{core::{defs::{Atom, Axialness}, mendeleev::Element}, parsers::{elements::read_symbol, error::Error, scanner::{missing_character, Scanner}}};
+use crate::{core::defs::{Atom, Axialness}, parsers::{elements::read_symbol, error::Error, scanner::Scanner}};
 
 use super::config::read_configuration;
 
@@ -13,9 +13,9 @@ pub fn read_bracket(scanner: &mut Scanner) -> Result<Option<Atom>, Error> {
     let symbol;
     let aromatic;
 
-    if let Some((element, arom)) = read_organic(scanner)? {
+    if let Some(element) = read_organic(scanner)? {
         symbol = element;
-        aromatic = arom;
+        aromatic = true;
     } else {
         symbol = read_symbol(scanner)?;
         aromatic = false;
@@ -48,7 +48,7 @@ pub fn read_bracket(scanner: &mut Scanner) -> Result<Option<Atom>, Error> {
     }
 }
 
-fn read_hcount(scanner: &mut Scanner) -> Result<u8, Error> {
+pub fn read_hcount(scanner: &mut Scanner) -> Result<usize, Error> {
     match scanner.peek() {
         Some('H') => {
             scanner.pop();
@@ -73,7 +73,7 @@ fn read_hcount(scanner: &mut Scanner) -> Result<u8, Error> {
     }
 }
 
-fn read_isotope(scanner: &mut Scanner) -> Result<i8, Error> {
+pub fn read_isotope(scanner: &mut Scanner) -> Result<usize, Error> {
     let mut digits = String::new();
 
     for _ in 0..3 {
@@ -86,7 +86,7 @@ fn read_isotope(scanner: &mut Scanner) -> Result<i8, Error> {
     if digits.is_empty() {
         Ok(0)
     } else {
-        Ok(digits.parse::<i8>().unwrap())
+        Ok(digits.parse::<usize>().unwrap())
     }
 }
 
@@ -233,7 +233,7 @@ pub fn read_star(scanner: &mut Scanner) -> Result<Option<Atom>, Error> {
             scanner.pop();
 
             Ok(Some(Atom {
-                element: Element::Unknown,
+                element: 0,
                 outgoing_bond: Vec::new(),
                 isotope: 0,
                 hydrogens: 0,
@@ -248,96 +248,31 @@ pub fn read_star(scanner: &mut Scanner) -> Result<Option<Atom>, Error> {
         _ => Ok(None),
     }
 }
-
-pub fn read_organic(scanner: &mut Scanner) -> Result<Option<(Element, bool)>, Error> {
+pub fn read_organic(scanner: &mut Scanner) -> Result<Option<usize>, Error> {
     match scanner.peek() {
         Some('b') => {
             scanner.pop();
-            Ok(Some((Element::B, true)))
+            Ok(Some(5)) // Atomic number for Boron is 5
         }
         Some('c') => {
             scanner.pop();
-            Ok(Some((Element::C, true)))
+            Ok(Some(6)) // Atomic number for Carbon is 6
         }
         Some('n') => {
             scanner.pop();
-            Ok(Some((Element::N, true)))
+            Ok(Some(7)) // Atomic number for Nitrogen is 7
         }
         Some('o') => {
             scanner.pop();
-            Ok(Some((Element::O, true)))
+            Ok(Some(8)) // Atomic number for Oxygen is 8
         }
         Some('p') => {
             scanner.pop();
-            Ok(Some((Element::P, true)))
+            Ok(Some(15)) // Atomic number for Phosphorus is 15
         }
         Some('s') => {
             scanner.pop();
-            Ok(Some((Element::S, true)))
-        }
-        Some('A') => {
-            scanner.pop();
-            match scanner.peek() {
-                Some('t') => {
-                    scanner.pop();
-                    Ok(Some((Element::At, false)))
-                }
-                _ => Err(missing_character(scanner)),
-            }
-        }
-        Some('B') => {
-            scanner.pop();
-            match scanner.peek() {
-                Some('r') => {
-                    scanner.pop();
-                    Ok(Some((Element::Br, false)))
-                }
-                _ => Ok(Some((Element::B, false))),
-            }
-        }
-        Some('C') => {
-            scanner.pop();
-            match scanner.peek() {
-                Some('l') => {
-                    scanner.pop();
-                    Ok(Some((Element::Cl, false)))
-                }
-                _ => Ok(Some((Element::C, false))),
-            }
-        }
-        Some('N') => {
-            scanner.pop();
-            Ok(Some((Element::N, false)))
-        }
-        Some('O') => {
-            scanner.pop();
-            Ok(Some((Element::O, false)))
-        }
-        Some('P') => {
-            scanner.pop();
-            Ok(Some((Element::P, false)))
-        }
-        Some('S') => {
-            scanner.pop();
-            Ok(Some((Element::S, false)))
-        }
-        Some('F') => {
-            scanner.pop();
-            Ok(Some((Element::F, false)))
-        }
-        Some('I') => {
-            scanner.pop();
-            Ok(Some((Element::I, false)))
-        }
-        Some('T') => {
-            scanner.pop();
-            match scanner.peek() {
-                Some('s') => {
-                    scanner.pop();
-                    Ok(Some((Element::Ts, false)))
-                }
-                _ => Err(missing_character(scanner)),
-            }
+            Ok(Some(16)) // Atomic number for Sulfur is 16
         }
         _ => Ok(None),
     }

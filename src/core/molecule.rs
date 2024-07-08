@@ -21,7 +21,7 @@ impl Molecule {
     pub fn add_bond(&mut self, bond: Bond){
         self.bonds.push(bond)
     }
-    pub fn h_count_update(&mut self, atom_index: usize, h_count: u8) {
+    pub fn h_count_update(&mut self, atom_index: usize, h_count: usize) {
         self.atoms[atom_index].h_count_update(h_count);
     }
 

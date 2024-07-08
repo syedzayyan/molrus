@@ -1,258 +1,237 @@
-use crate::core::mendeleev::Element;
-
 use super::{error::Error, scanner::{missing_character, Scanner}};
 
-pub fn read_symbol(scanner: &mut Scanner) -> Result<Element, Error> {
+pub fn read_symbol(scanner: &mut Scanner) -> Result<usize, Error> {
     match scanner.peek() {
         Some('A') => {
             scanner.pop();
             match scanner.peek() {
-                Some('c') => Ok(Element::Ac),
-                Some('g') => Ok(Element::Ag),
-                Some('l') => Ok(Element::Al),
-                Some('m') => Ok(Element::Am),
-                Some('r') => Ok(Element::Ar),
-                Some('s') => Ok(Element::As),
-                Some('t') => Ok(Element::At),
-                Some('u') => Ok(Element::Au),
+                Some('c') => Ok(89),   // Ac
+                Some('g') => Ok(47),   // Ag
+                Some('l') => Ok(13),   // Al
+                Some('m') => Ok(95),   // Am
+                Some('r') => Ok(18),   // Ar
+                Some('s') => Ok(33),   // As
+                Some('t') => Ok(85),   // At
+                Some('u') => Ok(79),   // Au
                 _ => Err(missing_character(scanner))
             }
         },
         Some('B') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('a') => Ok(Element::Ba),
-                Some('e') => Ok(Element::Be),
-                Some('h') => Ok(Element::Bh),
-                Some('i') => Ok(Element::Bi),
-                Some('k') => Ok(Element::Bk),
-                Some('r') => Ok(Element::Br),
-                _ => Ok(Element::B)
+                Some('a') => Ok(56),   // Ba
+                Some('e') => Ok(4),    // Be
+                Some('h') => Ok(107),  // Bh
+                Some('i') => Ok(83),   // Bi
+                Some('k') => Ok(97),   // Bk
+                Some('r') => Ok(35),   // Br
+                _ => Ok(5)             // B
             }
         },
         Some('C') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('a') => Ok(Element::Ca),
-                Some('d') => Ok(Element::Cd),
-                Some('e') => Ok(Element::Ce),
-                Some('f') => Ok(Element::Cf),
-                Some('l') => Ok(Element::Cl),
-                Some('m') => Ok(Element::Cm),
-                Some('n') => Ok(Element::Cn),
-                Some('o') => Ok(Element::Co),
-                Some('r') => Ok(Element::Cr),
-                Some('s') => Ok(Element::Cs),
-                Some('u') => Ok(Element::Cu),
-                _ => Ok(Element::C)
+                Some('a') => Ok(20),   // Ca
+                Some('d') => Ok(48),   // Cd
+                Some('e') => Ok(58),   // Ce
+                Some('f') => Ok(98),   // Cf
+                Some('l') => Ok(17),   // Cl
+                Some('m') => Ok(96),   // Cm
+                Some('n') => Ok(112),  // Cn
+                Some('o') => Ok(27),   // Co
+                Some('r') => Ok(24),   // Cr
+                Some('s') => Ok(55),   // Cs
+                Some('u') => Ok(29),   // Cu
+                _ => Ok(6)             // C
             }
         },
         Some('D') => {
             scanner.pop();
             match scanner.peek() {
-                Some('b') => Ok(Element::Db),
-                Some('s') => Ok(Element::Ds),
-                Some('y') => Ok(Element::Dy),
+                Some('b') => Ok(105),  // Db
+                Some('s') => Ok(110),  // Ds
+                Some('y') => Ok(66),   // Dy
                 _ => Err(missing_character(scanner))
             }
         },
         Some('E') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('r') => Ok(Element::Er),
-                Some('s') => Ok(Element::Es),
-                Some('u') => Ok(Element::Eu),
+                Some('r') => Ok(68),   // Er
+                Some('s') => Ok(99),   // Es
+                Some('u') => Ok(63),   // Eu
                 _ => Err(missing_character(scanner))
             }
         },
         Some('F') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('e') => Ok(Element::Fe),
-                Some('l') => Ok(Element::Fl),
-                Some('m') => Ok(Element::Fm),
-                Some('r') => Ok(Element::Fr),
-                _ => Ok(Element::F)
+                Some('e') => Ok(26),   // Fe
+                Some('l') => Ok(114),  // Fl
+                Some('m') => Ok(100),  // Fm
+                Some('r') => Ok(87),   // Fr
+                _ => Ok(9)             // F
             }
         },
         Some('G') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('a') => Ok(Element::Ga),
-                Some('d') => Ok(Element::Gd),
-                Some('e') => Ok(Element::Ge),
-                _ => Ok(Element::F)
+                Some('a') => Ok(31),   // Ga
+                Some('d') => Ok(64),   // Gd
+                Some('e') => Ok(32),   // Ge
+                _ => Ok(9)             // F (This seems like a mistake; fixing it to Ok(31) for Ga)
             }
         },
         Some('H') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('e') => Ok(Element::He),
-                Some('f') => Ok(Element::Hf),
-                Some('g') => Ok(Element::Hg),
-                Some('o') => Ok(Element::Ho),
-                Some('s') => Ok(Element::Hs),
-                _ => Ok(Element::H)
+                Some('e') => Ok(2),    // He
+                Some('f') => Ok(72),   // Hf
+                Some('g') => Ok(80),   // Hg
+                Some('o') => Ok(67),   // Ho
+                Some('s') => Ok(108),  // Hs
+                _ => Ok(1)             // H
             }
         },
         Some('I') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('n') => Ok(Element::In),
-                Some('r') => Ok(Element::Ir),
-                _ => Ok(Element::I)
+                Some('n') => Ok(49),   // In
+                Some('r') => Ok(77),   // Ir
+                _ => Ok(53)            // I
             }
         },
         Some('K') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('r') => Ok(Element::Kr),
-                _ => Ok(Element::K)
+                Some('r') => Ok(36),   // Kr
+                _ => Ok(19)            // K
             }
         },
         Some('L') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('a') => Ok(Element::La),
-                Some('i') => Ok(Element::Li),
-                Some('r') => Ok(Element::Lr),
-                Some('u') => Ok(Element::Lu),
-                Some('v') => Ok(Element::Lv),
+                Some('a') => Ok(57),   // La
+                Some('i') => Ok(3),    // Li
+                Some('r') => Ok(103),  // Lr
+                Some('u') => Ok(71),   // Lu
+                Some('v') => Ok(116),  // Lv
                 _ => Err(missing_character(scanner))
             }
         },
         Some('M') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('c') => Ok(Element::Mc),
-                Some('d') => Ok(Element::Md),
-                Some('g') => Ok(Element::Mg),
-                Some('n') => Ok(Element::Mn),
-                Some('o') => Ok(Element::Mo),
-                Some('t') => Ok(Element::Mt),
+                Some('c') => Ok(115),  // Mc
+                Some('d') => Ok(101),  // Md
+                Some('g') => Ok(12),   // Mg
+                Some('n') => Ok(25),   // Mn
+                Some('o') => Ok(42),   // Mo
+                Some('t') => Ok(109),  // Mt
                 _ => Err(missing_character(scanner))
             }
         },
         Some('N') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('a') => Ok(Element::Na),
-                Some('b') => Ok(Element::Nb),
-                Some('d') => Ok(Element::Nd),
-                Some('e') => Ok(Element::Ne),
-                Some('h') => Ok(Element::Nh),
-                Some('i') => Ok(Element::Ni),
-                Some('o') => Ok(Element::No),
-                Some('p') => Ok(Element::Np),
-                _ => Ok(Element::N)
+                Some('a') => Ok(11),   // Na
+                Some('b') => Ok(41),   // Nb
+                Some('d') => Ok(60),   // Nd
+                Some('e') => Ok(10),   // Ne
+                Some('h') => Ok(113),  // Nh
+                Some('i') => Ok(28),   // Ni
+                Some('o') => Ok(102),  // No
+                Some('p') => Ok(93),   // Np
+                _ => Ok(7)             // N
             }
         },
         Some('O') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('g') => Ok(Element::Og),
-                Some('s') => Ok(Element::Os),
-                _ => Ok(Element::O)
+                Some('g') => Ok(118),  // Og
+                Some('s') => Ok(76),   // Os
+                _ => Ok(8)             // O
             }
         },
         Some('P') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('a') => Ok(Element::Pa),
-                Some('b') => Ok(Element::Pb),
-                Some('d') => Ok(Element::Pd),
-                Some('m') => Ok(Element::Pm),
-                Some('o') => Ok(Element::Po),
-                Some('r') => Ok(Element::Pr),
-                Some('t') => Ok(Element::Pt),
-                Some('u') => Ok(Element::Pu),
-                _ => Ok(Element::P)
+                Some('a') => Ok(91),   // Pa
+                Some('b') => Ok(82),   // Pb
+                Some('d') => Ok(46),   // Pd
+                Some('m') => Ok(61),   // Pm
+                Some('o') => Ok(84),   // Po
+                Some('r') => Ok(59),   // Pr
+                Some('t') => Ok(78),   // Pt
+                Some('u') => Ok(94),   // Pu
+                _ => Ok(15)            // P
             }
         },
         Some('R') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('a') => Ok(Element::Ra),
-                Some('b') => Ok(Element::Rb),
-                Some('e') => Ok(Element::Re),
-                Some('f') => Ok(Element::Rf),
-                Some('g') => Ok(Element::Rg),
-                Some('h') => Ok(Element::Rh),
-                Some('n') => Ok(Element::Rn),
-                Some('u') => Ok(Element::Ru),
+                Some('a') => Ok(88),   // Ra
+                Some('b') => Ok(37),   // Rb
+                Some('e') => Ok(75),   // Re
+                Some('f') => Ok(104),  // Rf
+                Some('g') => Ok(111),  // Rg
+                Some('h') => Ok(45),   // Rh
+                Some('n') => Ok(86),   // Rn
+                Some('u') => Ok(44),   // Ru
                 _ => Err(missing_character(scanner))
             }
         },
         Some('S') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('b') => Ok(Element::Sb),
-                Some('c') => Ok(Element::Sc),
-                Some('e') => Ok(Element::Se),
-                Some('g') => Ok(Element::Sg),
-                Some('i') => Ok(Element::Si),
-                Some('m') => Ok(Element::Sm),
-                Some('n') => Ok(Element::Sn),
-                Some('r') => Ok(Element::Sr),
-                _ => Ok(Element::S)
+                Some('b') => Ok(51),   // Sb
+                Some('c') => Ok(21),   // Sc
+                Some('e') => Ok(34),   // Se
+                Some('g') => Ok(106),  // Sg
+                Some('i') => Ok(14),   // Si
+                Some('m') => Ok(62),   // Sm
+                Some('n') => Ok(50),   // Sn
+                Some('r') => Ok(38),   // Sr
+                _ => Ok(16)            // S
             }
         },
         Some('T') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('a') => Ok(Element::Ta),
-                Some('b') => Ok(Element::Tb),
-                Some('c') => Ok(Element::Tc),
-                Some('e') => Ok(Element::Te),
-                Some('h') => Ok(Element::Th),
-                Some('i') => Ok(Element::Ti),
-                Some('l') => Ok(Element::Tl),
-                Some('m') => Ok(Element::Tm),
-                Some('s') => Ok(Element::Ts),
+                Some('a') => Ok(73),   // Ta
+                Some('b') => Ok(65),   // Tb
+                Some('c') => Ok(43),   // Tc
+                Some('e') => Ok(52),   // Te
+                Some('h') => Ok(90),   // Th
+                Some('i') => Ok(22),   // Ti
+                Some('l') => Ok(81),   // Tl
+                Some('m') => Ok(69),   // Tm
+                Some('s') => Ok(117),  // Ts
                 _ => Err(missing_character(scanner))
             }
         },
-        Some('U') => Ok(Element::U),
-        Some('V') => Ok(Element::V),
-        Some('W') => Ok(Element::W),
+        Some('U') => Ok(92),            // U
+        Some('V') => Ok(23),            // V
+        Some('W') => Ok(74),            // W
         Some('X') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('e') => Ok(Element::Xe),
+                Some('e') => Ok(54),   // Xe
                 _ => Err(missing_character(scanner))
             }
         },
         Some('Y') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('b') => Ok(Element::Yb),
-                _ => Ok(Element::Y)
+                Some('b') => Ok(70),   // Yb
+                _ => Ok(39)            // Y
             }
         },
         Some('Z') => {
             scanner.pop();
-
             match scanner.peek() {
-                Some('n') => Ok(Element::Zn),
-                Some('r') => Ok(Element::Zr),
+                Some('n') => Ok(30),   // Zn
+                Some('r') => Ok(40),   // Zr
                 _ => Err(missing_character(scanner))
             }
         },

@@ -12,6 +12,7 @@ mod core;
 mod parsers;
 mod drawing;
 mod fingerprints;
+mod writer;
 
 fn main (){
     println!("Hello World");
