@@ -1,0 +1,45 @@
+header {
+  padding: 2rem 3rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 2rem;
+
+  // Container is reused elsewhere, so this must be declared here
+  nav {
+    display: flex;
+    flex-grow: 1;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 1rem 2rem;
+    margin: 0;
+  }
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+@media only screen and (max-width: 1000px) {
+  header {
+    max-width: 90%;
+    margin-inline: auto;
+    justify-content: center;
+  }
+}
+
+.content {
+  flex-grow: 1;
+
+  &--reversed {
+    background: $foreground;
+    color: $background;
+  }
+}
+
+footer {
+  text-align: center;
+  padding: 2rem 3rem;
+}
