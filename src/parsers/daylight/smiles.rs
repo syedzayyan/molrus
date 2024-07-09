@@ -1,9 +1,12 @@
-use crate::{core::{defs::{Atom, Bond}, mendeleev::valence_electrons, molecule::Molecule}, parsers::{elements::read_symbol, error::Error, scanner::{missing_character, Scanner}}};
+use crate::{core::{defs::{Atom, Bond}, mendeleev::valence_electrons, molecule::Molecule}, parsers::{elements::read_symbol, error::Error, scanner::Scanner}};
 
 use super::smiles_utils::{read_axial, read_bond, read_bracket, read_organic, read_star};
 use std::collections::{HashMap, VecDeque};
 
 fn parse_atom(scanner: &mut Scanner) -> Result<Atom, Error> {
+    if let Some(unknown_atom) = read_star(scanner)? {
+        return Ok(unknown_atom);
+    }
     if let Some(bracket_atom) = read_bracket(scanner)? {
         return Ok(bracket_atom);
     }
@@ -35,12 +38,8 @@ fn parse_atom(scanner: &mut Scanner) -> Result<Atom, Error> {
             symmetry_class: 0,
             coords_3d : None
         };
+        return Ok(atom_data)
     }
-    if let Some(unknown_atom) = read_star(scanner)? {
-        return Ok(unknown_atom);
-    }
-
-    Err(missing_character(scanner))
 }
 pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
     let mut scanner = Scanner::new(smiles);

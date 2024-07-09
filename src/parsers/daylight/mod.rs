@@ -1,6 +1,6 @@
 pub mod smiles;
-mod config;
-mod smiles_utils;
 pub mod smarts;
-mod smarts_defs;
-mod smarts_utils;
+pub mod smarts_defs;
+pub mod smarts_utils;
+pub mod config;
+pub mod smiles_utils;
