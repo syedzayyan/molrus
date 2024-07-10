@@ -79,4 +79,5 @@ pub struct SmartsPattern {
     pub root: usize,
     pub smarts_string: String,
     pub chirality: bool,
+    pub recursion : bool
 }

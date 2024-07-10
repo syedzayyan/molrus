@@ -4,7 +4,7 @@ use crate::{core::molecule::Molecule, parsers::{elements::read_symbol, error::Er
 
 use super::{smarts_defs::{
     Expr, ExprType, OpCode, SmartsPattern, TreeNode
-}, smarts_utils::{parse_atom_expr, parse_bond_expr}, smiles_utils::read_organic};
+}, smarts_utils::{eval_atom_expr, eval_bond_expr, parse_atom_expr, parse_bond_expr}, smiles_utils::read_organic};
 
 impl SmartsPattern {
     pub fn new(smarts_string: String) -> SmartsPattern {
@@ -13,6 +13,7 @@ impl SmartsPattern {
             root: 0,
             smarts_string: smarts_string,
             chirality: false,
+            recursion : false,
         }
     }
 
@@ -172,12 +173,102 @@ impl SmartsPattern {
         Ok(())
     }
 
-    pub fn match_mol(&self, mol: Molecule) {
-        println!("{:?}", mol.atoms);
-        for nodes in &self.nodes {
-            match nodes.op_code {
-                _ => todo!(),
+    pub fn match_smarts(&self, molecule: &Molecule) -> bool {
+        let mut matcher = SmartsMatch::new(&self, molecule);
+        matcher.match_smarts()
+    }
+}
+
+struct SmartsMatch<'a> {
+    pattern: &'a SmartsPattern,
+    molecule: &'a Molecule,
+    atom_mapping: Vec<Option<usize>>,
+    bond_mapping: Vec<Option<usize>>,
+}
+
+impl<'a> SmartsMatch<'a> {
+    fn new(pattern: &'a SmartsPattern, molecule: &'a Molecule) -> Self {
+        SmartsMatch {
+            pattern,
+            molecule,
+            atom_mapping: vec![None; pattern.nodes.len()],
+            bond_mapping: vec![None; pattern.nodes.len()],
+        }
+    }
+
+    fn match_smarts(&mut self) -> bool {
+        self.match_recursive(0)
+    }
+
+    fn match_recursive(&mut self, op_index: usize) -> bool {
+        if op_index == self.pattern.nodes.len() {
+            return true;
+        }
+
+        let node = &self.pattern.nodes[op_index];
+        match node.op_code {
+            OpCode::SeedAtom => self.seed_atom(op_index),
+            OpCode::GrowBond => self.grow_bond(op_index),
+            OpCode::CloseRing => self.close_ring(op_index),
+            // Other OpCodes
+            _ => false,
+        }
+    }
+
+    fn seed_atom(&mut self, op_index: usize) -> bool {
+        for (mol_atom_idx, mol_atom) in self.molecule.atoms.iter().enumerate() {
+            if eval_atom_expr(&self.pattern.nodes[op_index].data, mol_atom) {
+                self.atom_mapping[op_index] = Some(mol_atom_idx);
+                if self.match_recursive(op_index + 1) {
+                    return true;
+                }
+                self.atom_mapping[op_index] = None;
             }
         }
+        false
+    }
+
+    fn grow_bond(&mut self, op_index: usize) -> bool {
+        let node = &self.pattern.nodes[op_index];
+        let qry_beg = node.parent;
+        let qry_end = op_index;
+
+        if let Some(mol_beg) = self.atom_mapping[qry_beg] {
+            for (mol_bond_idx, mol_bond) in self.molecule.bonds.iter().enumerate() {
+                if mol_bond.source == mol_beg || mol_bond.dest == mol_beg {
+                    let mol_end = if mol_bond.source == mol_beg { mol_bond.dest } else { mol_bond.source };
+                    if eval_atom_expr(&self.pattern.nodes[qry_end].data, &self.molecule.atoms[mol_end])
+                        && eval_bond_expr(&node.data, mol_bond) {
+                        self.atom_mapping[qry_end] = Some(mol_end);
+                        self.bond_mapping[op_index] = Some(mol_bond_idx);
+                        if self.match_recursive(op_index + 1) {
+                            return true;
+                        }
+                        self.atom_mapping[qry_end] = None;
+                        self.bond_mapping[op_index] = None;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    fn close_ring(&mut self, op_index: usize) -> bool {
+        let node = &self.pattern.nodes[op_index];
+        let qry_beg = node.parent;
+        let qry_end = op_index;
+
+        if let (Some(mol_beg), Some(mol_end)) = (self.atom_mapping[qry_beg], self.atom_mapping[qry_end]) {
+            if let Some(mol_bond) = self.molecule.get_bond(mol_beg, mol_end) {
+                if eval_bond_expr(&node.data, mol_bond) {
+                    self.bond_mapping[op_index] = Some(self.molecule.bonds.iter().position(|b| b == mol_bond).unwrap());
+                    if self.match_recursive(op_index + 1) {
+                        return true;
+                    }
+                    self.bond_mapping[op_index] = None;
+                }
+            }
+        }
+        false
     }
 }

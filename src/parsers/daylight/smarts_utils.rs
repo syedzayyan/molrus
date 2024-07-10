@@ -143,11 +143,61 @@ pub fn parse_atom_expr (scanner: &mut Scanner, smartsins : &mut SmartsPattern, p
                 }
             },
             Some('@') => {
-
+                scanner.pop();
+                match scanner.peek() {
+                    Some('?') => {
+                        expr_type = ExprType::AlUnspecified;
+                        scanner.pop();
+                    },
+                    Some('@') => {
+                        expr_type = ExprType::AlAnticlockwise;
+                        scanner.pop();
+                    },
+                    _ => expr_type = ExprType::AlClockwise,
+                }
             }
-            _ => todo!()
+            Some('^') => {
+                scanner.pop();
+                match scanner.peek() {
+                    Some('0'..='9') => {
+                        scanner.pop();
+                        atomic_num = Some(scanner.curr_character() as i8);
+                        expr_type = ExprType::AeHyb;
+                    }
+                    _ => {
+                        expr_type = ExprType::AeHyb;
+                        atomic_num = Some(1);
+                    }
+                }
+            }
+            Some('D') | Some('H') | Some('R') |
+            Some('h') | Some('r') | Some('v') |
+            Some('X') | Some('x')
+            => {
+                scanner.pop();
+                match scanner.peek() {
+                    Some('0'..='9') => {
+                        scanner.pop();
+                        atomic_num = Some(scanner.curr_character() as i8);
+                        match scanner.look_back() {
+                            Some('D') => expr_type = ExprType::AeDegree,
+                            Some('H') => expr_type = ExprType::AeHcount,
+                            Some('h') => expr_type = ExprType::AeImplicit,
+                            Some('R') => expr_type = ExprType::AeRings,
+                            Some('r') => expr_type = ExprType::AeSize,
+                            Some('v') => expr_type = ExprType::AeValence,
+                            Some('x') => expr_type = ExprType::AeConnect,
+                            Some('X') => expr_type = ExprType::AeRingconnect,
+                            _ => {}
+                        }
+                    }
+                    _ => return Err(missing_character(scanner))
+                }
+            }
+            _ => {}
         }
     }
+
     Ok(Expr {
         expr_type : expr_type,
         val: atomic_num,
