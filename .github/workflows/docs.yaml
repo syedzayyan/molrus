@@ -14,6 +14,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./docs
     steps:
     - name: Check out repo
       uses: actions/checkout@v3
@@ -27,7 +30,6 @@ jobs:
         | sudo tar xzf - -C /usr/local/bin
     - name: Generate HTML & CNAME
       run: |
-        cd docs
         zola build
         echo 'syedzayyan.com' > ./public/CNAME
     - name: Deploy to gh-pages

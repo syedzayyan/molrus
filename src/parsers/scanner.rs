@@ -13,7 +13,9 @@ impl Scanner {
             characters: string.chars().collect()
         }
     }
-
+    pub fn curr_character(&self) -> char {
+        self.characters[self.cursor]
+    }
     pub fn cursor(&self) -> usize {
         self.cursor
     }
