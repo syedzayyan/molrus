@@ -1,6 +1,6 @@
-base_url = "https://www.getzola.org/"
-title = "Zola"
-description = "Everything you need to make a static site engine in one binary."
+base_url = "https://syedzayyan.com/molrus/"
+title = "Molrus"
+description = "A cheminformatics library written in Rust, made with love."
 
 compile_sass = true
 build_search_index = true
@@ -21,4 +21,4 @@ highlight_theme = "kronuz"
 internal_level = "warn"
 
 [extra]
-author = "Vincent Prouillet"
+author = "SZM"
