@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="A cheminformatics library written in Rust, made with love.">
+        <meta name="author" content="SZM">
+        <title>Overview | Molrus </title>
+        <link rel="stylesheet" href="https://syedzayyan.com/molrus/site.css">
+        <link rel="icon" href="https://syedzayyan.com/molrus/favicon.ico">
+    </head>
+    <body>
+
+        <header>
+            <a class="header__logo white" href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;">Molrus</a>
+            <nav>
+                <ul>
+                    <li><a class="white" href="https://syedzayyan.com/molrus/documentation/" class="nav-link">Docs</a></li>
+                    <li><a class="white" href="https://github.com/syedzayyan/molrus" class="nav-link">GitHub</a></li>
+                </ul>
+                <div class="search-container">
+                    <input id="search" type="search" placeholder="🔎 Search the docs">
+
+                    <div class="search-results">
+                        <div class="search-results__items"></div>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <div class="content content--reversed">
+            
+
+<div class="documentation">
+    <aside class="documentation__sidebar">
+        <ul>
+        
+            
+            <li>
+                <span class="documentation__sidebar__title">Getting Started</span>
+                <ul>
+                    
+                        <li class="active">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;getting-started&#x2F;overview&#x2F;">Overview</a>
+                        </li>
+                    
+                        <li class="">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;getting-started&#x2F;installation&#x2F;">Installation</a>
+                        </li>
+                    
+                        <li class="">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;getting-started&#x2F;parsers&#x2F;">Parsers</a>
+                        </li>
+                    
+                        <li class="">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;getting-started&#x2F;writers&#x2F;">Writers</a>
+                        </li>
+                    
+                </ul>
+            </li>
+        
+            
+            <li>
+                <span class="documentation__sidebar__title">Contribution</span>
+                <ul>
+                    
+                        <li class="">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;contribution&#x2F;ground-rules&#x2F;">Ground Rules</a>
+                        </li>
+                    
+                </ul>
+            </li>
+        
+        </ul>
+    </aside>
+    <div class="documentation__content">
+        
+    <h1>Overview</h1>
+    <h2 id="molrus-at-a-glance"><a class="zola-anchor" href="#molrus-at-a-glance" aria-label="Anchor link for: molrus-at-a-glance">🔗</a>Molrus at a Glance</h2>
+<p>I have no idea how to start this, so read in a molecules first and do simple SMARTS match!</p>
+<pre data-lang="Rust" style="background-color:#383838;color:#e6e1dc;" class="language-Rust "><code class="language-Rust" data-lang="Rust"><span style="color:#95815e;">// Import Stuff
+</span><span style="color:#cc7833;">use </span><span>molrus::parsers::daylight::{smarts_defs::SmartsPattern, smiles::parse_smiles};
+</span><span>
+</span><span style="font-style:italic;color:#6e9cbe;">fn </span><span style="color:#ffc66d;">main</span><span>(){
+</span><span>    </span><span style="color:#95815e;">// Read in a molecule
+</span><span>    </span><span style="font-style:italic;color:#6e9cbe;">let</span><span> mol </span><span style="color:#cc7833;">= </span><span style="color:#da4939;">parse_smiles</span><span>(</span><span style="color:#c1be91;">&quot;CCO&quot;</span><span>).</span><span style="color:#da4939;">unwrap</span><span>();
+</span><span>    </span><span style="color:#95815e;">// Read in a SMARTS string
+</span><span>    </span><span style="font-style:italic;color:#6e9cbe;">let</span><span> smarts_pattern </span><span style="color:#cc7833;">= </span><span>SmartsPattern::new(</span><span style="color:#c1be91;">&quot;[12*]&quot;</span><span>)</span><span style="color:#cc7833;">?</span><span>;
+</span><span>
+</span><span>    </span><span style="color:#95815e;">// Match your molecule!
+</span><span>    </span><span style="font-style:italic;color:#6e9cbe;">let</span><span> is_match </span><span style="color:#cc7833;">=</span><span> smarts_pattern.</span><span style="color:#da4939;">match_mol</span><span>(</span><span style="color:#cc7833;">&amp;</span><span>mol);
+</span><span>    println!(</span><span style="color:#c1be91;">&quot;</span><span style="color:#6d9cbe;">{:?}</span><span style="color:#c1be91;">&quot;</span><span>, is_match)
+</span><span>}
+</span></code></pre>
+
+
+    </div>
+</div>
+
+        </div>
+        <footer>
+            Docs, powered with Zola, mantained by <a class="nav-link" href = "https://syedzayyan.com/">SZM</a>
+        </footer>
+
+        <script type="text/javascript" src="https://syedzayyan.com/molrus/elasticlunr.min.js"></script>
+        <script type="text/javascript" src="https://syedzayyan.com/molrus/search.js"></script>
+    </body>
+</html>
