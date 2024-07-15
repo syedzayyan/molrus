@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub enum OpCode {
     SeedAtom,
     GrowBond,
@@ -9,10 +10,10 @@ pub enum OpCode {
     TetraRight,
 }
 // John Genius Mayfield, pointed out that I could just combine Expr Types
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum ExprType {
     True,  // Any Atom
-    False, // Any Bond
+    False, // No Atom?
 
     AeAndhi,         // AND logical operation, high priority
     AeAndlo,         // AND logical operation, low priority
@@ -41,6 +42,7 @@ pub enum ExprType {
     AlClockwise,     // Clockwise chiral configuration
     AlAnticlockwise, // Anticlockwise chiral configuration
     AlUnspecified,   // Unspecified chirality
+    
     BeAndhi,         // AND logical operation, high priority
     BeAndlo,         // AND logical operation, low priority
     BeOr,            // OR logical operation
@@ -59,21 +61,23 @@ pub enum ExprType {
     BeDownunspec,    // Downward bond, unspecified stereochemistry
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Expr {
     pub expr_type: ExprType,
     pub val: Option<i8>,
     pub left: Option<Box<Expr>>,
     pub right: Option<Box<Expr>>,
 }
-
+#[derive(Debug)]
 pub struct TreeNode {
     pub op_code: OpCode,
     pub data: Expr,
-    pub parent: usize,
+    pub src: usize, 
+    pub dst: Option<usize>, // Option for bonds as atoms don't really have a dst
+    pub nbrs: Option<Vec<usize>>, // None for Bond Nodes
     pub visit: bool,
 }
-
+#[derive(Debug)]
 pub struct SmartsPattern {
     pub nodes: Vec<TreeNode>,
     pub root: usize,

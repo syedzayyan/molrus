@@ -2,3 +2,5 @@ filename.svg
 target
 .DS_Store
 /docs/public
+/src/main.rs
+.vscode

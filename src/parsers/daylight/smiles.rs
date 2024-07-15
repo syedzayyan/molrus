@@ -1,4 +1,11 @@
-use crate::{core::{defs::{Atom, Bond}, mendeleev::valence_electrons, molecule::Molecule}, parsers::{elements::read_symbol, error::Error, scanner::Scanner}};
+use crate::{
+    core::{
+        defs::{Atom, Bond},
+        mendeleev::valence_electrons,
+        molecule::Molecule,
+    },
+    parsers::{elements::read_symbol, error::Error, scanner::Scanner},
+};
 
 use super::smiles_utils::{read_axial, read_bond, read_bracket, read_organic, read_star};
 use std::collections::{HashMap, VecDeque};
@@ -16,12 +23,12 @@ fn parse_atom(scanner: &mut Scanner) -> Result<Atom, Error> {
             outgoing_bond: Vec::new(),
             isotope: 0,
             hydrogens: 0,
-            aromatic : true,
+            aromatic: true,
             f_charge: 0,
             configuration: None,
             ring: false,
             symmetry_class: 0,
-            coords_3d : None
+            coords_3d: None,
         };
         return Ok(atom_data);
     } else {
@@ -31,14 +38,14 @@ fn parse_atom(scanner: &mut Scanner) -> Result<Atom, Error> {
             outgoing_bond: Vec::new(),
             isotope: 0,
             hydrogens: 0,
-            aromatic : false,
+            aromatic: false,
             f_charge: 0,
             configuration: None,
             ring: false,
             symmetry_class: 0,
-            coords_3d : None
+            coords_3d: None,
         };
-        return Ok(atom_data)
+        return Ok(atom_data);
     }
 }
 pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
@@ -74,6 +81,8 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
         let curr_index = molecule.atoms.len();
         molecule.add_atom(atom_data);
 
+        let bond_index = molecule.bonds.len();
+
         // Handle ring closures
         if let Some(digit) = scanner.peek().and_then(|c| c.to_digit(10)) {
             molecule.atoms[curr_index].ring_reverse();
@@ -94,9 +103,12 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
                     arom: aromatic,
                     ring: true,
                     bond_order: bond_order,
-                    axialness : bond_axialness.clone()
+                    axialness: bond_axialness.clone(),
                 };
                 molecule.add_bond(bond);
+
+                molecule.atoms[other_atom].add_to_bond_list(bond_index);
+                molecule.atoms[curr_index].add_to_bond_list(bond_index);
             } else {
                 ring_closures.insert(ring_number, curr_index);
             }
@@ -114,13 +126,22 @@ pub fn parse_smiles(smiles: &str) -> Result<Molecule, Error> {
                 arom: aromatic,
                 ring: false,
                 bond_order: bond_order as i8,
-                axialness : bond_axialness
+                axialness: bond_axialness,
             };
-            molecule.add_bond(bond);
+            if !scanner.is_done() {
+                molecule.add_bond(bond);
+            }
+            // Update outgoing_bond for both atoms
+            molecule.atoms[last_atom].add_to_bond_list(bond_index);
+            molecule.atoms[curr_index].add_to_bond_list(bond_index);
 
             // Update H Count for the last atom
             let last_atom_valency = valence_electrons(molecule.atoms[last_atom].element);
-            let number_of_bonds = molecule.bonds.iter().filter(|b| b.source == last_atom || b.dest == last_atom).count();
+            let number_of_bonds = molecule
+                .bonds
+                .iter()
+                .filter(|b| b.source == last_atom || b.dest == last_atom)
+                .count();
             let modified_h_count = last_atom_valency - number_of_bonds;
             molecule.h_count_update(last_atom, modified_h_count.max(0));
         }
