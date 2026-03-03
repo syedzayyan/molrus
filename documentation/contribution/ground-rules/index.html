@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="A cheminformatics library written in Rust, made with love.">
+        <meta name="author" content="SZM">
+        <title>Ground Rules | Molrus </title>
+        <link rel="stylesheet" href="https://syedzayyan.com/molrus/site.css">
+        <link rel="icon" href="https://syedzayyan.com/molrus/favicon.ico">
+    </head>
+    <body>
+
+        <header>
+            <a class="header__logo white" href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;">Molrus</a>
+            <nav>
+                <ul>
+                    <li><a class="white" href="https://syedzayyan.com/molrus/documentation/" class="nav-link">Docs</a></li>
+                    <li><a class="white" href="https://github.com/syedzayyan/molrus" class="nav-link">GitHub</a></li>
+                </ul>
+                <div class="search-container">
+                    <input id="search" type="search" placeholder="🔎 Search the docs">
+
+                    <div class="search-results">
+                        <div class="search-results__items"></div>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <div class="content content--reversed">
+            
+
+<div class="documentation">
+    <aside class="documentation__sidebar">
+        <ul>
+        
+            
+            <li>
+                <span class="documentation__sidebar__title">Getting Started</span>
+                <ul>
+                    
+                        <li class="">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;getting-started&#x2F;overview&#x2F;">Overview</a>
+                        </li>
+                    
+                        <li class="">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;getting-started&#x2F;installation&#x2F;">Installation</a>
+                        </li>
+                    
+                        <li class="">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;getting-started&#x2F;parsers&#x2F;">Parsers</a>
+                        </li>
+                    
+                        <li class="">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;getting-started&#x2F;writers&#x2F;">Writers</a>
+                        </li>
+                    
+                </ul>
+            </li>
+        
+            
+            <li>
+                <span class="documentation__sidebar__title">Contribution</span>
+                <ul>
+                    
+                        <li class="active">
+                            <a href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;documentation&#x2F;contribution&#x2F;ground-rules&#x2F;">Ground Rules</a>
+                        </li>
+                    
+                </ul>
+            </li>
+        
+        </ul>
+    </aside>
+    <div class="documentation__content">
+        
+    <h1>Ground Rules</h1>
+    <h2 id="ground-rules"><a class="zola-anchor" href="#ground-rules" aria-label="Anchor link for: ground-rules">🔗</a>Ground Rules</h2>
+<ul>
+<li>I have tried to keep the code fairly dependency free. Please try to keep that in mind. Why? Because libraries die.</li>
+<li>I tend to avoid smart pointers so Arc, RefRc is a bit out of line. I just don't like them having worked with them in RDKit. Yes, I know this is Rust but still. If you absolutely need it because you want multithreaded magic and you are a god-tier programmer, please go ahead.</li>
+<li>Upon download, <code>cargo build</code> should do enough to build the codebase. And then the usual stuff you do while doing a PR. Fork the library, make changes and merge into the main on this repo.</li>
+</ul>
+<h3 id="where-do-i-start"><a class="zola-anchor" href="#where-do-i-start" aria-label="Anchor link for: where-do-i-start">🔗</a>Where do I start?</h3>
+<ul>
+<li>Good place to start would be docs. Write like a human being please. Dry, self-deprecating humour is always welcome. Just don't take a dig at me, I have a massive ego that gets hurt easily.</li>
+<li>Make, tutorials? Those are fine too in the quickstart guide. The world is the limit!</li>
+<li>Implementing new stuff. Okay, ML/AI is frankly out of line, but anything else in cheminformatics is really fine. Don't leak memory, be recursive yadi yadi yada. Also document and stuff please.</li>
+</ul>
+<h3 id="your-code-is-not-idiomatic-rust"><a class="zola-anchor" href="#your-code-is-not-idiomatic-rust" aria-label="Anchor link for: your-code-is-not-idiomatic-rust">🔗</a>YoUr cOde Is NoT IdIOmaTic RuSt!</h3>
+<p>Do a PR? It's not like I am claiming to be a Rust or programming God!</p>
+
+
+    </div>
+</div>
+
+        </div>
+        <footer>
+            Docs, powered with Zola, mantained by <a class="nav-link" href = "https://syedzayyan.com/">SZM</a>
+        </footer>
+
+        <script type="text/javascript" src="https://syedzayyan.com/molrus/elasticlunr.min.js"></script>
+        <script type="text/javascript" src="https://syedzayyan.com/molrus/search.js"></script>
+    </body>
+</html>

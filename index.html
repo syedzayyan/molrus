@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="description" content="A cheminformatics library written in Rust, made with love.">
+        <meta name="author" content="SZM">
+        <title>Molrus</title>
+        <link rel="stylesheet" href="https://syedzayyan.com/molrus/site.css">
+        <link rel="icon" href="https://syedzayyan.com/molrus/favicon.ico">
+    </head>
+    <body>
+
+        <header>
+            <a class="header__logo white" href="https:&#x2F;&#x2F;syedzayyan.com&#x2F;molrus&#x2F;">Molrus</a>
+            <nav>
+                <ul>
+                    <li><a class="white" href="https://syedzayyan.com/molrus/documentation/" class="nav-link">Docs</a></li>
+                    <li><a class="white" href="https://github.com/syedzayyan/molrus" class="nav-link">GitHub</a></li>
+                </ul>
+                <div class="search-container">
+                    <input id="search" type="search" placeholder="🔎 Search the docs">
+
+                    <div class="search-results">
+                        <div class="search-results__items"></div>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <div class="content ">
+            
+                <div class="hero">
+                    <h1>A cheminformatics library written in Rust, made with love, tears and more tears</h1>
+                    <img src = "molrus.png" height = "300px" width="300px">
+                    <br /><br />
+                    <a href="https://syedzayyan.com/molrus/documentation/" class="button">Get started</a>
+                </div>
+
+                <div class="inverted-colours selling-points">
+                    <div class="selling-points__content container">
+                        <div class="selling-point">
+                            <h2>No dependencies</h2>
+                            <p>
+                                Unlike other cheminformatics libraries out there, molrus (for now),
+                                does not have dependencies (shots fired).
+                            </p>
+                        </div>
+
+                        <div class="selling-point">
+                            <h2>Blazing fast</h2>
+                            <p>
+                                I know Rust has its own qualms about ownership and borrowing variables, 
+                                making it slow sometimes (because safety is costly)
+                                but hopefully it'll be faster than than many garbage collected languages.
+                                (*bang bang)
+                            </p>
+                        </div>
+
+                        <div class="selling-point">
+                            <h2>Python and JS Bindings</h2>
+                            <p>
+                                Yes, there will be Python Bindings, and there should be a WASM
+                                version as well soon.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            
+        </div>
+        <footer>
+            Docs, powered with Zola, mantained by <a class="nav-link" href = "https://syedzayyan.com/">SZM</a>
+        </footer>
+
+        <script type="text/javascript" src="https://syedzayyan.com/molrus/elasticlunr.min.js"></script>
+        <script type="text/javascript" src="https://syedzayyan.com/molrus/search.js"></script>
+    </body>
+</html>
