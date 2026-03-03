@@ -1,74 +1,96 @@
-// use std::{cmp::Ordering, collections::HashSet};
-// use crate::core::{defs::Atom, molecule::Molecule};
-// use super::hash::djb2_hash;
+use super::hash::djb2_hash;
+use crate::core::{defs::Atom, mendeleev::valence_electrons, molecule::Molecule};
+use std::collections::HashSet;
 
-// // Computes the hash for a given atom
-// fn compute_atom_hashes(atom: &Atom) -> u64 {
-//     let curr_atom_data = atom.atom_data.clone();
+fn atom_feature_hash(atom: &Atom) -> u64 {
+    let atomic_number = atom.element as u64;
+    let h_count = atom.hydrogens as u64;
+    let f_charge = atom.f_charge as i64;
+    let charge_mag = f_charge.abs() as u64;
+    let charge_sign = if f_charge < 0 { 1_u64 } else { 0 };
 
-//     // Details of current atom
-//     let atomic_number: i32 = curr_atom_data.element.atomic_number();
-//     let h_count: i32 = curr_atom_data.hydrogens as i32;
-//     let f_charge: i32 = curr_atom_data.f_charge.abs() as i32;
-//     let sign: i32 = if curr_atom_data.f_charge < 0 { 1 } else { 0 };
-//     let heavy_atom_connections = curr_atom_data.element.valence_electrons() - f_charge as i32;
+    let heavy_atom_connections = {
+        let valence = valence_electrons(atom.element) as i64;
+        (valence - f_charge).max(0) as u64
+    };
 
-//     let concatenated = format!("{}{}{}{}{}", atomic_number, h_count, f_charge, sign, heavy_atom_connections);
-//     djb2_hash(&concatenated)
-// }
+    let s = format!(
+        "{}{}{}{}{}{}",
+        atomic_number, h_count, charge_mag, charge_sign, heavy_atom_connections, atom.aromatic
+    );
+    djb2_hash(&s)
+}
 
-// pub fn ecfp(molecule: Molecule) -> HashSet<u64> {
-//     let mut atom_identifier_set: HashSet<u64> = HashSet::new();
-//     let mut mega_bond_list = Vec::new();
-    
-//     // Step 2 and 3: Label each atom and add to set
-//     for atom in molecule.atoms.iter() {
-//         let hashed_atom = compute_atom_hashes(atom);
-//         atom_identifier_set.insert(hashed_atom);
-        
-//         // Step 5: Create and sort bond list
-//         let neighbours = molecule.get_neighbouring_bond_indexes(atom.index);
-//         let mut bond_list = Vec::new();
-//         for nei in neighbours.iter() {
-//             let bond = molecule.bonds.get(*nei).unwrap();
-//             bond_list.push(bond);
-//         }
+pub fn ecfp(molecule: &Molecule, radius: usize) -> HashSet<u64> {
+    let mut identifiers = HashSet::new();
+    let n_atoms = molecule.atoms.len();
 
-//         bond_list.sort_by(|a, b| {
-//             match a.bond_data.bond_order.partial_cmp(&b.bond_data.bond_order) {
-//                 Some(Ordering::Equal) => a.target.cmp(&b.target),
-//                 other_ordering => other_ordering.unwrap_or(Ordering::Equal),
-//             }
-//         });
+    // Step 1: initial atom identifiers (radius 0)
+    let mut current_atom_ids: Vec<u64> = (0..n_atoms)
+        .map(|i| atom_feature_hash(&molecule.atoms[i]))
+        .collect();
 
-//         mega_bond_list.push(bond_list);
-//     }
+    // Record all identifiers along the way (including radius 0)
+    for &id in &current_atom_ids {
+        identifiers.insert(id);
+    }
 
-//     // Step 6, 7, 8, and 9: Generate new identifiers based on bonds
-//     for (i, bond_list) in mega_bond_list.iter().enumerate() {
-//         let mut iteration_index = 1;
-//         for bond in bond_list {
-//             let src_atom_hash = compute_atom_hashes(&molecule.atoms[i]);
-//             let dest_atom_hash = compute_atom_hashes(&molecule.atoms[bond.target]);
+    // Step 2: iterate for `radius` levels (Morgan expansion)
+    for _ in 0..radius {
+        let mut new_ids = Vec::with_capacity(n_atoms);
 
-//             let feature_str = format!(
-//                 "{},{},{},{},{}",
-//                 iteration_index,
-//                 src_atom_hash,
-//                 bond.bond_data.bond_order,
-//                 dest_atom_hash,
-//                 bond.bond_data.bond_order,
-//             );
+        for i in 0..n_atoms {
+            let center_hash = current_atom_ids[i];
 
-//             let feature_string_hash = djb2_hash(&feature_str);
+            let mut neighbors: Vec<u64> = molecule
+                .bonds
+                .iter()
+                .filter(|b| b.source == i || b.dest == i)
+                .map(|b| {
+                    let j = if b.source == i { b.dest } else { b.source };
+                    let bond_atom_hash = current_atom_ids[j];
+                    let bond_order = b.bond_order as u64;
+                    // Hash bond order + neighbor atom id + central atom id
+                    let s = format!("{}{}{}{}", center_hash, bond_order, bond_atom_hash, b.arom);
+                    djb2_hash(&s)
+                })
+                .collect();
 
-//             // Only add unique identifiers to the set
-//             if !atom_identifier_set.contains(&feature_string_hash) {
-//                 atom_identifier_set.insert(feature_string_hash);
-//             }
-//             iteration_index += 1;
-//         }
-//     }
-//     atom_identifier_set
-// }
+            neighbors.sort_unstable(); // deterministic order
 
+            // Combine central atom hash with sorted neighbor hashes
+            let mut combined = center_hash.to_string();
+            for nh in neighbors {
+                combined.push_str(&nh.to_string());
+            }
+            let new_id = djb2_hash(&combined);
+
+            new_ids.push(new_id);
+        }
+
+        // Step 3: accumulate all new identifiers
+        for &id in &new_ids {
+            identifiers.insert(id);
+        }
+
+        // Step 4: update for next radius
+        current_atom_ids = new_ids;
+    }
+
+    identifiers
+}
+
+pub fn ecfp_bitvec(molecule: &Molecule, radius: usize, n_bits: usize) -> Vec<u8> {
+    let ids = ecfp(molecule, radius);
+    let mut vec = vec![0u8; (n_bits + 7) / 8];
+
+    for id in ids {
+        // Simple hash → bit index
+        let bit_idx = (id % (n_bits as u64)) as usize;
+        let byte_idx = bit_idx / 8;
+        let bit = bit_idx % 8;
+        vec[byte_idx] |= 1 << bit;
+    }
+
+    vec
+}

@@ -1,11 +1,669 @@
-use core::panic;
 use std::collections::{HashMap, VecDeque};
 
-use crate::{core::molecule::Molecule, parsers::{elements::read_symbol, error::Error, scanner::{missing_character, Scanner}}};
+use crate::{
+    core::molecule::Molecule,
+    parsers::{error::Error, scanner::Scanner},
+};
 
-use super::{smarts_defs::{
-    Expr, ExprType, OpCode, SmartsPattern, TreeNode
-}, smarts_utils::{collect_recursive_smarts, eval_atom_expr, eval_bond_expr, parse_primitive_bond_types}, smiles_utils::read_organic};
+use super::{
+    smarts_defs::{Expr, ExprType, OpCode, SmartsPattern, TreeNode},
+    smarts_utils::{eval_atom_expr, eval_bond_expr},
+};
+
+// ────────────────────────────────────────────────────
+// Free-standing combinators (not methods)
+// ────────────────────────────────────────────────────
+
+fn combine_and(lhs: Option<Expr>, rhs: Option<Expr>) -> Option<Expr> {
+    match (lhs, rhs) {
+        (None, None) => None,
+        (Some(l), None) => Some(l),
+        (None, Some(r)) => Some(r),
+        (Some(l), Some(r)) => Some(Expr {
+            expr_type: ExprType::AeAndlo,
+            val: None,
+            left: Some(Box::new(l)),
+            right: Some(Box::new(r)),
+        }),
+    }
+}
+
+fn combine_andbond(lhs: Option<Expr>, rhs: Option<Expr>) -> Option<Expr> {
+    match (lhs, rhs) {
+        (None, None) => None,
+        (Some(l), None) => Some(l),
+        (None, Some(r)) => Some(r),
+        (Some(l), Some(r)) => Some(Expr {
+            expr_type: ExprType::BeAndlo,
+            val: None,
+            left: Some(Box::new(l)),
+            right: Some(Box::new(r)),
+        }),
+    }
+}
+
+// ────────────────────────────────────────────────────
+// Primitive parsers (free-standing)
+// ────────────────────────────────────────────────────
+
+fn parse_h_count_expr(scanner: &mut Scanner) -> Result<Expr, Error> {
+    if let Some('H') = scanner.peek() {
+        scanner.pop();
+        let h = match scanner.peek() {
+            Some('0'..='9') => match scanner.pop() {
+                Some('0') => 0,
+                Some('1') => 1,
+                Some('2') => 2,
+                Some('3') => 3,
+                Some('4') => 4,
+                Some('5') => 5,
+                Some('6') => 6,
+                Some('7') => 7,
+                Some('8') => 8,
+                Some('9') => 9,
+                _ => unreachable!(),
+            },
+            _ => 1,
+        };
+        Ok(Expr {
+            expr_type: ExprType::AeHcount,
+            val: Some(h),
+            left: None,
+            right: None,
+        })
+    } else {
+        Err(Error::Character(scanner.cursor()))
+    }
+}
+
+fn parse_charge_expr(scanner: &mut Scanner) -> Result<Expr, Error> {
+    match scanner.peek() {
+        Some('+') => {
+            scanner.pop();
+            let charge = if let Some('+') = scanner.peek() {
+                scanner.pop();
+                2
+            } else {
+                1
+            };
+            Ok(Expr {
+                expr_type: ExprType::AeCharge,
+                val: Some(charge),
+                left: None,
+                right: None,
+            })
+        }
+        Some('-') => {
+            scanner.pop();
+            let charge = if let Some('-') = scanner.peek() {
+                scanner.pop();
+                2
+            } else {
+                1
+            };
+            Ok(Expr {
+                expr_type: ExprType::AeCharge,
+                val: Some(-charge),
+                left: None,
+                right: None,
+            })
+        }
+        _ => Ok(Expr {
+            expr_type: ExprType::AeCharge,
+            val: Some(0),
+            left: None,
+            right: None,
+        }),
+    }
+}
+
+fn parse_stereo_bond_expr(scanner: &mut Scanner) -> Result<Expr, Error> {
+    match scanner.pop() {
+        Some('/') => Ok(Expr {
+            expr_type: ExprType::BeUp,
+            val: None,
+            left: None,
+            right: None,
+        }),
+        Some('\\') => Ok(Expr {
+            expr_type: ExprType::BeDown,
+            val: None,
+            left: None,
+            right: None,
+        }),
+        _ => Err(Error::Character(scanner.cursor() - 1)),
+    }
+}
+
+fn parse_bracket_atom_expr(scanner: &mut Scanner) -> Result<Expr, Error> {
+    // '[' already consumed
+    let mut element: Option<i8> = None;
+    let mut mass: Option<i8> = None;
+    let mut hcount: Option<i8> = None;
+    let mut charge: Option<i8> = None;
+    let mut chirality: Option<i8> = None;
+    let mut connectivity: Option<i8> = None;
+    let mut aromatic = false;
+
+    loop {
+        match scanner.peek() {
+            Some('0'..='9') => {
+                let mut digits = String::new();
+                while scanner.peek().map_or(false, |c| c.is_ascii_digit()) {
+                    digits.push(*scanner.pop().unwrap());
+                }
+                mass = Some(digits.parse::<i8>().unwrap_or(0));
+            }
+            Some('*') => {
+                scanner.pop();
+            }
+            Some('H') => {
+                hcount = parse_h_count_expr(scanner)?.val;
+            }
+            Some('+') | Some('-') => {
+                charge = parse_charge_expr(scanner)?.val;
+            }
+            Some('@') => {
+                scanner.pop();
+                chirality = Some(if let Some('@') = scanner.peek() {
+                    scanner.pop();
+                    2
+                } else {
+                    1
+                });
+            }
+            Some('c' | 'n' | 'o' | 's' | 'p' | 'b') => {
+                let z = match scanner.pop().unwrap() {
+                    'c' => 6,
+                    'n' => 7,
+                    'o' => 8,
+                    's' => 16,
+                    'p' => 15,
+                    'b' => 5,
+                    _ => unreachable!(),
+                };
+                element = Some(z);
+                aromatic = true;
+            }
+            Some(c) if c.is_ascii_uppercase() => {
+                let z = match scanner.pop().unwrap() {
+                    'B' => 5,
+                    'C' => 6,
+                    'N' => 7,
+                    'O' => 8,
+                    'F' => 9,
+                    'P' => 15,
+                    'S' => 16,
+                    'I' => 53,
+                    _ => 0,
+                };
+                element = Some(z);
+                aromatic = false;
+            }
+            Some('X') => {
+                scanner.pop();
+                let degree = match scanner.peek() {
+                    Some('0'..='9') => match scanner.pop() {
+                        Some('0') => 0,
+                        Some('1') => 1,
+                        Some('2') => 2,
+                        Some('3') => 3,
+                        Some('4') => 4,
+                        Some('5') => 5,
+                        Some('6') => 6,
+                        Some('7') => 7,
+                        Some('8') => 8,
+                        Some('9') => 9,
+                        _ => unreachable!(),
+                    },
+                    _ => 1,
+                };
+                connectivity = Some(degree);
+            }
+            Some(']') => {
+                scanner.pop();
+                break;
+            }
+            None => return Err(Error::EndOfLine),
+            _ => return Err(Error::Character(scanner.cursor())),
+        }
+    }
+
+    // Build expression tree from collected properties
+    let mut expr = Expr {
+        expr_type: ExprType::True,
+        val: None,
+        left: None,
+        right: None,
+    };
+
+    if let Some(e) = element {
+        expr = combine_and(
+            Some(expr),
+            Some(Expr {
+                expr_type: if aromatic {
+                    ExprType::AeAromelem
+                } else {
+                    ExprType::AeAliphelem
+                },
+                val: Some(e),
+                left: None,
+                right: None,
+            }),
+        )
+        .unwrap();
+    }
+
+    if let Some(m) = mass {
+        expr = combine_and(
+            Some(expr),
+            Some(Expr {
+                expr_type: ExprType::AeMass,
+                val: Some(m),
+                left: None,
+                right: None,
+            }),
+        )
+        .unwrap();
+    }
+
+    if let Some(ch) = chirality {
+        expr = combine_and(
+            Some(expr),
+            Some(Expr {
+                expr_type: ExprType::AeChiral,
+                val: Some(ch),
+                left: None,
+                right: None,
+            }),
+        )
+        .unwrap();
+    }
+
+    if let Some(h) = hcount {
+        expr = combine_and(
+            Some(expr),
+            Some(Expr {
+                expr_type: ExprType::AeHcount,
+                val: Some(h),
+                left: None,
+                right: None,
+            }),
+        )
+        .unwrap();
+    }
+
+    if let Some(c) = charge {
+        expr = combine_and(
+            Some(expr),
+            Some(Expr {
+                expr_type: ExprType::AeCharge,
+                val: Some(c),
+                left: None,
+                right: None,
+            }),
+        )
+        .unwrap();
+    }
+
+    if let Some(x) = connectivity {
+        expr = combine_and(
+            Some(expr),
+            Some(Expr {
+                expr_type: ExprType::AeConnect,
+                val: Some(x),
+                left: None,
+                right: None,
+            }),
+        )
+        .unwrap();
+    }
+
+    Ok(expr)
+}
+
+/// Parse a SMARTS atom expression (outside brackets).
+/// Stops at any token that isn't an atom primitive.
+fn parse_atom_expr(scanner: &mut Scanner) -> Result<Expr, Error> {
+    // Parse a single atom primitive — no implicit AND loop at top level.
+    // Implicit AND chaining only happens inside [...] via parse_bracket_atom_expr.
+    let expr = match scanner.peek() {
+        Some('c') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAromelem,
+                val: Some(6),
+                left: None,
+                right: None,
+            }
+        }
+        Some('n') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAromelem,
+                val: Some(7),
+                left: None,
+                right: None,
+            }
+        }
+        Some('o') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAromelem,
+                val: Some(8),
+                left: None,
+                right: None,
+            }
+        }
+        Some('s') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAromelem,
+                val: Some(16),
+                left: None,
+                right: None,
+            }
+        }
+        Some('p') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAromelem,
+                val: Some(15),
+                left: None,
+                right: None,
+            }
+        }
+        Some('b') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAromelem,
+                val: Some(5),
+                left: None,
+                right: None,
+            }
+        }
+        Some('C') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAliphelem,
+                val: Some(6),
+                left: None,
+                right: None,
+            }
+        }
+        Some('N') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAliphelem,
+                val: Some(7),
+                left: None,
+                right: None,
+            }
+        }
+        Some('O') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAliphelem,
+                val: Some(8),
+                left: None,
+                right: None,
+            }
+        }
+        Some('S') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAliphelem,
+                val: Some(16),
+                left: None,
+                right: None,
+            }
+        }
+        Some('P') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAliphelem,
+                val: Some(15),
+                left: None,
+                right: None,
+            }
+        }
+        Some('B') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAliphelem,
+                val: Some(5),
+                left: None,
+                right: None,
+            }
+        }
+        Some('F') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAliphelem,
+                val: Some(9),
+                left: None,
+                right: None,
+            }
+        }
+        Some('*') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::True,
+                val: None,
+                left: None,
+                right: None,
+            }
+        }
+        Some('a') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAromatic,
+                val: None,
+                left: None,
+                right: None,
+            }
+        }
+        Some('A') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAliphatic,
+                val: None,
+                left: None,
+                right: None,
+            }
+        }
+        Some('r') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeCyclic,
+                val: None,
+                left: None,
+                right: None,
+            }
+        }
+        Some('R') => {
+            scanner.pop();
+            Expr {
+                expr_type: ExprType::AeAcyclic,
+                val: None,
+                left: None,
+                right: None,
+            }
+        }
+        Some('H') => parse_h_count_expr(scanner)?,
+        Some('+') | Some('-') => parse_charge_expr(scanner)?,
+        Some('@') => {
+            scanner.pop();
+            let val = if let Some('@') = scanner.peek() {
+                scanner.pop();
+                2i8
+            } else {
+                1i8
+            };
+            Expr {
+                expr_type: ExprType::AeChiral,
+                val: Some(val),
+                left: None,
+                right: None,
+            }
+        }
+        Some('[') => {
+            scanner.pop();
+            parse_bracket_atom_expr(scanner)?
+        }
+        Some('!') => {
+            scanner.pop();
+            let inner = parse_atom_expr(scanner)?;
+            Expr {
+                expr_type: ExprType::AeNot,
+                val: None,
+                left: Some(Box::new(inner)),
+                right: None,
+            }
+        }
+        Some(';') => {
+            scanner.pop();
+            let rhs = parse_atom_expr(scanner)?;
+            Expr {
+                expr_type: ExprType::AeAndhi,
+                val: None,
+                left: Some(Box::new(Expr {
+                    expr_type: ExprType::True,
+                    val: None,
+                    left: None,
+                    right: None,
+                })),
+                right: Some(Box::new(rhs)),
+            }
+        }
+        Some(',') => {
+            scanner.pop();
+            let rhs = parse_atom_expr(scanner)?;
+            Expr {
+                expr_type: ExprType::AeOr,
+                val: None,
+                left: Some(Box::new(Expr {
+                    expr_type: ExprType::True,
+                    val: None,
+                    left: None,
+                    right: None,
+                })),
+                right: Some(Box::new(rhs)),
+            }
+        }
+        _ => Expr {
+            expr_type: ExprType::True,
+            val: None,
+            left: None,
+            right: None,
+        },
+    };
+
+    Ok(expr)
+}
+
+/// Parse a SMARTS bond expression.
+fn parse_bond_expr(scanner: &mut Scanner) -> Result<Expr, Error> {
+    let mut result: Option<Expr> = None;
+
+    loop {
+        let expr = match scanner.peek() {
+            Some('-') => {
+                scanner.pop();
+                Expr {
+                    expr_type: ExprType::BeSingle,
+                    val: None,
+                    left: None,
+                    right: None,
+                }
+            }
+            Some('=') => {
+                scanner.pop();
+                Expr {
+                    expr_type: ExprType::BeDouble,
+                    val: None,
+                    left: None,
+                    right: None,
+                }
+            }
+            Some('#') => {
+                scanner.pop();
+                Expr {
+                    expr_type: ExprType::BeTriple,
+                    val: None,
+                    left: None,
+                    right: None,
+                }
+            }
+            Some('$') => {
+                scanner.pop();
+                Expr {
+                    expr_type: ExprType::BeQuad,
+                    val: None,
+                    left: None,
+                    right: None,
+                }
+            }
+            Some(':') => {
+                scanner.pop();
+                Expr {
+                    expr_type: ExprType::BeArom,
+                    val: None,
+                    left: None,
+                    right: None,
+                }
+            }
+            Some('~') => {
+                scanner.pop();
+                Expr {
+                    expr_type: ExprType::BeAny,
+                    val: None,
+                    left: None,
+                    right: None,
+                }
+            }
+            Some('@') => {
+                scanner.pop();
+                let val = if let Some('@') = scanner.peek() {
+                    scanner.pop();
+                    2i8
+                } else {
+                    1i8
+                };
+                Expr {
+                    expr_type: ExprType::AeChiral,
+                    val: Some(val),
+                    left: None,
+                    right: None,
+                }
+            }
+            Some('/') | Some('\\') => parse_stereo_bond_expr(scanner)?,
+            Some('!') => {
+                scanner.pop();
+                let inner = parse_bond_expr(scanner)?;
+                Expr {
+                    expr_type: ExprType::BeNot,
+                    val: None,
+                    left: Some(Box::new(inner)),
+                    right: None,
+                }
+            }
+            _ => break,
+        };
+        result = combine_andbond(result, Some(expr));
+    }
+
+    Ok(result.unwrap_or(Expr {
+        expr_type: ExprType::BeDefault,
+        val: None,
+        left: None,
+        right: None,
+    }))
+}
+
+// ────────────────────────────────────────────────────
+// SmartsPattern impl
+// ────────────────────────────────────────────────────
 
 impl SmartsPattern {
     pub fn new(smarts_string: &str) -> SmartsPattern {
@@ -14,528 +672,165 @@ impl SmartsPattern {
             root: 0,
             smarts_string: smarts_string.to_string(),
             chirality: false,
-            recursion : false,
+            recursion: false,
         };
-        let ast_res = pat.build_ast();
-        match ast_res {
-            Ok(_) => {},
-            Err(e) => panic!("{:?}", e)
+        match pat.build_ast() {
+            Ok(_) => {}
+            Err(e) => panic!("SMARTS parse error: {:?}", e),
         }
         pat
     }
-    
-    // Parse Bracketed Atom Exprs
-    fn parse_atom_expr(
-        &mut self,
-        scanner: &mut Scanner,
-        prev_node: &mut Option<usize>,
-    ) -> Result<Expr, Error> {
-        let mut atomic_num: Option<i8> = None;
-        let mut expr_type = ExprType::True;
-        match scanner.peek() {
-            Some('#') => {
-                match scanner.peek() {
-                    Some('0'..='9') => {
-                        atomic_num = Some(scanner.peek().unwrap().to_owned() as i8);
-                    }
-                    _ => return Err(missing_character(scanner)),
-                }
-                scanner.pop();
-            }
-            Some('$') => {
-                let recursive_smarts = collect_recursive_smarts(scanner);
-                let mut recursive_smart_instance = SmartsPattern::new(recursive_smarts.as_str());
-                recursive_smart_instance.build_ast()?;
-                let mut recur_nodes = recursive_smart_instance.nodes;
-                recur_nodes[0].data.expr_type = ExprType::AeRecur;
-                self.nodes.extend(recur_nodes);
-                *prev_node = Some(self.nodes.len());
-            }
-            Some('+') => {
-                expr_type = ExprType::AeCharge;
-                scanner.pop();
-                match scanner.peek() {
-                    Some('0'..='9') => {
-                        atomic_num = Some(scanner.peek().unwrap().to_owned() as i8);
-                    }
-                    _ => return Err(missing_character(scanner)),
-                }
-                scanner.pop();
-            }
-            Some('-') => {
-                expr_type = ExprType::AeCharge;
-                scanner.pop();
-                match scanner.peek() {
-                    Some('0'..='9') => {
-                        atomic_num = Some((scanner.peek().unwrap().to_owned() as i8) * -1);
-                    }
-                    _ => return Err(missing_character(scanner)),
-                }
-                scanner.pop();
-            }
-            Some('@') => {
-                scanner.pop();
-                match scanner.peek() {
-                    Some('?') => {
-                        expr_type = ExprType::AlUnspecified;
-                    }
-                    Some('@') => {
-                        expr_type = ExprType::AlAnticlockwise;
-                    }
-                    _ => expr_type = ExprType::AlClockwise,
-                }
-                scanner.pop();
-            }
-            Some('^') => {
-                scanner.pop();
-                match scanner.peek() {
-                    Some('0'..='9') => {
-                        scanner.pop();
-                        atomic_num = Some(scanner.curr_character() as i8);
-                        expr_type = ExprType::AeHyb;
-                    }
-                    _ => {
-                        expr_type = ExprType::AeHyb;
-                        atomic_num = Some(1);
-                    }
-                }
-            }
-            Some('D') | Some('H') | Some('R') | Some('h') | Some('r') | Some('v') | Some('X')
-            | Some('x') => {
-                scanner.pop();
-                match scanner.peek() {
-                    Some('0'..='9') => { 
-                        atomic_num = Some(scanner.curr_character() as i8);
-                        scanner.pop();
-                        match scanner.look_back() {
-                            Some('D') => expr_type = ExprType::AeDegree,
-                            Some('H') => expr_type = ExprType::AeHcount,
-                            Some('h') => expr_type = ExprType::AeImplicit,
-                            Some('R') => expr_type = ExprType::AeRings,
-                            Some('r') => expr_type = ExprType::AeSize,
-                            Some('v') => expr_type = ExprType::AeValence,
-                            Some('x') => expr_type = ExprType::AeConnect,
-                            Some('X') => expr_type = ExprType::AeRingconnect,
-                            _ => {}
-                        }
-                    }
-                    _ => return Err(missing_character(scanner)),
-                }
-            }
-            Some('0'..='9') => {
-                let mut str_digit = String::from("");
-                str_digit.push(scanner.curr_character());
-                scanner.pop();
-                match scanner.peek() {
-                    Some('0'..='9') => {
-                        str_digit.push(scanner.curr_character());
-                        scanner.pop();
-    
-                        match scanner.peek() {
-                            Some('0'..='9') => {
-                                str_digit.push(scanner.curr_character());
-                                scanner.pop();
-                            }
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                }
-                let parsed_string = str_digit.parse::<u8>().unwrap();
-                if parsed_string == 0 || parsed_string > 118 {
-                    panic!("Do better")
-                }
-                atomic_num = Some(parsed_string as i8);
-                scanner.pop();
-            }
-            Some('*') => {
-                expr_type = ExprType::True;
-                scanner.pop();
-            }
-            _ => {
-                let atom_element = read_symbol(scanner);
-                match atom_element {
-                    Ok(resulted_okay_atom) => {
-                        atomic_num = Some(resulted_okay_atom as i8);
-                        expr_type = ExprType::AeAliphatic;
-                    }
-                    Err(_) => {
-                        let aromatic_ele = read_organic(scanner);
-                        match aromatic_ele {
-                            Ok(aromm) => {
-                                atomic_num = aromm.and_then(|x| x.try_into().ok());
-                                expr_type = ExprType::AeAromatic;
-                            }
-                            Err(_) => {}
-                        }
-                    }
-                }
-            }
-        }
-        Ok(Expr {
-            expr_type: expr_type,
-            val: atomic_num,
-            left: None,
-            right: None,
-        })
-    }
-    
-    fn parse_atom_expr_in_bracket(&mut self, level: u8, scanner: &mut Scanner, prev_node: &mut Option<usize>) -> Option<Expr> {
-        match level {
-            // Low-precedence conjunction
-            0 => {
-                let mut expr = self.parse_atom_expr_in_bracket(1, scanner, prev_node)?;
-                while let Some(';') = scanner.peek() {
-                    scanner.pop();
-                    let right = self.parse_atom_expr_in_bracket(1, scanner, prev_node)?;
-                    expr = Expr {
-                        expr_type: ExprType::AeAndlo,
-                        val: None,
-                        left: Some(Box::new(expr)),
-                        right: Some(Box::new(right)),
-                    };
-                }
-                Some(expr)
-            },
-            // Disjunction
-            1 => {
-                let mut expr = self.parse_atom_expr_in_bracket(2, scanner, prev_node)?;
-                while let Some(',') = scanner.peek() {
-                    scanner.pop();
-                    let right = self.parse_atom_expr_in_bracket(2, scanner, prev_node)?;
-                    expr = Expr {
-                        expr_type: ExprType::AeOr,
-                        val: None,
-                        left: Some(Box::new(expr)),
-                        right: Some(Box::new(right)),
-                    };
-                }
-                Some(expr)
-            },
-            // High-precedence conjunction
-            2 => {
-                let mut expr = self.parse_atom_expr_in_bracket(3, scanner, prev_node)?;
-                while let Some('&') = scanner.peek() {
-                    scanner.pop();
-                    let right = self.parse_atom_expr_in_bracket(3, scanner, prev_node)?;
-                    expr = Expr {
-                        expr_type: ExprType::AeAndhi,
-                        val: None,
-                        left: Some(Box::new(expr)),
-                        right: Some(Box::new(right)),
-                    };
-                }
-                Some(expr)
-            },
-            // Negation and primitive expressions
-            3 => {
-                if let Some('!') = scanner.peek() {
-                    scanner.pop();
-                    let expr = self.parse_atom_expr_in_bracket(3, scanner, prev_node)?;
-                    Some(Expr {
-                        expr_type: ExprType::AeNot,
-                        val: None,
-                        left: Some(Box::new(expr)),
-                        right: None,
-                    })
-                } else {
-                    match self.parse_atom_expr(scanner, prev_node) {
-                        Ok (good_atom_expr) => Some(good_atom_expr),
-                        Err(_) => None,
-                    }
-                }
-            },
-            _ => None,
-        }
-    }
-    
-    
-    
-    // Parse Bracketed Bonds
-    fn parse_bond_expr(&mut self, level: u8, scanner: &mut Scanner) -> Option<Expr> {
-        match level {
-            // Low-precedence conjunction
-            0 => {
-                let mut expr = self.parse_bond_expr(1, scanner)?;
-                while let Some(';') = scanner.peek() {
-                    scanner.pop();
-                    let right = self.parse_bond_expr(1, scanner)?;
-                    expr = Expr {
-                        expr_type: ExprType::BeAndlo,
-                        val: None,
-                        left: Some(Box::new(expr)),
-                        right: Some(Box::new(right)),
-                    };
-                }
-                Some(expr)
-            },
-            // Disjunction
-            1 => {
-                let mut expr = self.parse_bond_expr(2, scanner)?;
-                while let Some(',') = scanner.peek() {
-                    scanner.pop();
-                    let right = self.parse_bond_expr(2, scanner)?;
-                    expr = Expr {
-                        expr_type: ExprType::BeOr,
-                        val: None,
-                        left: Some(Box::new(expr)),
-                        right: Some(Box::new(right)),
-                    };
-                }
-                Some(expr)
-            },
-            // High-precedence conjunction
-            2 => {
-                let mut expr = self.parse_bond_expr(3, scanner)?;
-                while let Some('&') = scanner.peek() {
-                    scanner.pop();
-                    let right = self.parse_bond_expr(3, scanner)?;
-                    expr = Expr {
-                        expr_type: ExprType::BeAndhi,
-                        val: None,
-                        left: Some(Box::new(expr)),
-                        right: Some(Box::new(right)),
-                    };
-                }
-                Some(expr)
-            },
-            // Negation and primitive expressions
-            3 => {
-                if let Some('!') = scanner.peek() {
-                    scanner.pop();
-                    let expr = self.parse_bond_expr(3, scanner)?;
-                    Some(Expr {
-                        expr_type: ExprType::BeNot,
-                        val: None,
-                        left: Some(Box::new(expr)),
-                        right: None,
-                    })
-                } else {
-                    Some(parse_primitive_bond_types(scanner))
-                }
-            },
-            _ => None,
-        }
-    }
-    
 
-    
     pub fn build_ast(&mut self) -> Result<(), Error> {
-        let mut scanner = Scanner::new(&self.smarts_string);
+        let mut scanner = Scanner::new(&self.smarts_string.clone());
         let mut branch_points: VecDeque<usize> = VecDeque::new();
-        let mut prev_node: Option<usize> = None;
+        let mut prev_atom: Option<usize> = None; // index of last SeedAtom node
         let mut ring_closures: HashMap<u8, usize> = HashMap::new();
-        while let Some(_) = scanner.peek() {
-            println!("{:?}", scanner.curr_character());
+        let mut implicit_bond: Option<ExprType> = None; // type to use when no bond token seen
+
+        while scanner.peek().is_some() {
             match scanner.peek() {
-                Some('.') => return Err(Error::Character(scanner.cursor())),
+                // ── Branch open ──────────────────────────────────────────────
+                Some('(') => {
+                    branch_points.push_back(prev_atom.expect("branch without atom"));
+                    scanner.pop();
+                }
+
+                // ── Branch close ─────────────────────────────────────────────
+                Some(')') => {
+                    prev_atom = branch_points.pop_back();
+                    scanner.pop();
+                }
+
+                // ── Explicit bond / stereo bond ───────────────────────────────
                 Some('-') | Some('=') | Some('#') | Some('$') | Some(':') | Some('~')
                 | Some('@') | Some('/') | Some('\\') | Some('!') => {
-                    if prev_node.is_none() {
-                        missing_character(&mut scanner);
-                    }
-                    let bexpr = self.parse_bond_expr(0, &mut scanner).unwrap();
-                    let node_index = self.nodes.len();
-                    let src_atom_index = prev_node.unwrap();
-                    let dst_atom_index = node_index + 1; // The next node will be the destination atom
-    
-                    self.nodes.push(TreeNode { 
-                        op_code: OpCode::GrowBond, 
-                        data: bexpr, 
-                        src: src_atom_index, 
-                        dst: Some(dst_atom_index),
-                        nbrs: None,
-                        visit: false 
-                    });
-    
-                    // Update the source atom's nbrs
-                    if let Some(nbrs) = &mut self.nodes[src_atom_index].nbrs {
-                        nbrs.push(node_index);
-                    }
-    
-                    prev_node = Some(node_index);
-                },
-                Some('(') => {
-                    branch_points.push_back(prev_node.unwrap());
-                    scanner.pop();
-                },
-                Some(')') => {
-                    prev_node = branch_points.pop_back();
-                    scanner.pop();
-                    // If there's a bond after the branch, update the branch point atom's nbrs
-                    if scanner.peek().map_or(false, |c| "=-#$:~@/\\!".contains(*c)) {
-                        let branch_point = prev_node.unwrap();
-                        let bond_index = self.nodes.len(); // The next node will be a bond
-                        if let Some(nbrs) = &mut self.nodes[branch_point].nbrs {
-                            nbrs.push(bond_index);
-                        }
-                    }
-                },
+                    // Keep the bond expr to attach to the *next* atom
+                    let bexpr = parse_bond_expr(&mut scanner)?;
+                    implicit_bond = Some(bexpr.expr_type); // carry forward
+                                                           // We push a GrowBond node later, once we know the destination atom
+                                                           // Store temporarily; handled inside the atom branch below
+                                                           // (see `pending_bond` approach)
+                }
+
+                // ── Ring closure digit ───────────────────────────────────────
                 Some('0'..='9') => {
-                    scanner.pop();
-                    let ring_number = scanner.curr_character() as u8;
-                    if let Some(ring_start_atom) = ring_closures.remove(&ring_number) {
-                        let bexpr = Expr {
-                            expr_type: ExprType::BeAny,
-                            val: None,
-                            left: None,
-                            right: None,
-                        };
-                        let ring_closure_index = self.nodes.len();
-                        self.nodes.push(TreeNode {
-                            op_code: OpCode::CloseRing,
-                            data: bexpr, 
-                            src: ring_start_atom,
-                            dst: prev_node,
-                            nbrs: None,
-                            visit: false
-                        });
-                        // Update nbrs for both atoms involved in the ring closure
-                        if let Some(nbrs) = &mut self.nodes[ring_start_atom].nbrs {
-                            nbrs.push(ring_closure_index);
-                        }
-                        if let Some(prev) = prev_node {
-                            if let Some(nbrs) = &mut self.nodes[prev].nbrs {
-                                nbrs.push(ring_closure_index);
-                            }
-                        }
-                    } else {
-                        ring_closures.insert(ring_number, prev_node.unwrap());
-                    }
+                    let digit = scanner.pop().unwrap().to_digit(10).unwrap() as u8;
+                    self.handle_ring_closure(digit, prev_atom, &mut ring_closures)?;
                 }
+
+                // ── Two-digit ring closure (%NN) ─────────────────────────────
                 Some('%') => {
-                    if prev_node.is_none() {
-                        missing_character(&mut scanner);
-                    }
                     scanner.pop();
-                    let mut str_digit = String::from("");
-                    match scanner.peek() {
-                        Some('0'..='9') => {
-                            scanner.pop();
-                            str_digit.push(scanner.curr_character());
-                            match scanner.peek() {
-                                Some('0'..='9') => {
-                                    scanner.pop();
-                                    str_digit.push(scanner.curr_character());
-                                }
-                                _ => {}
-                            }
+                    let mut s = String::new();
+                    for _ in 0..2 {
+                        match scanner.peek() {
+                            Some('0'..='9') => s.push(*scanner.pop().unwrap()),
+                            _ => return Err(Error::Character(scanner.cursor())),
                         }
-                        _ => return Err(Error::Character(scanner.cursor())),
                     }
-                    let ring_number = str_digit.parse::<u8>().unwrap();
-                    if let Some(ring_start_atom) = ring_closures.remove(&ring_number) {
-                        let bexpr = Expr {
-                            expr_type: ExprType::BeAny,
-                            val: None,
-                            left: None,
-                            right: None,
-                        };
-                        let ring_closure_index = self.nodes.len();
-                        self.nodes.push(TreeNode {
-                            op_code: OpCode::CloseRing,
-                            data: bexpr, 
-                            src: ring_start_atom,
-                            dst: prev_node,
-                            nbrs: None,
-                            visit: false
-                        });
-                        // Update nbrs for both atoms involved in the ring closure
-                        if let Some(nbrs) = &mut self.nodes[ring_start_atom].nbrs {
-                            nbrs.push(ring_closure_index);
-                        }
-                        if let Some(prev) = prev_node {
-                            if let Some(nbrs) = &mut self.nodes[prev].nbrs {
-                                nbrs.push(ring_closure_index);
-                            }
-                        }
-                    } else {
-                        ring_closures.insert(ring_number, prev_node.unwrap());
-                    }
+                    let n = s.parse::<u8>().unwrap();
+                    self.handle_ring_closure(n, prev_atom, &mut ring_closures)?;
                 }
-                Some('[') => {
-                    scanner.pop();
-                    if let Some(atomexpr) = self.parse_atom_expr_in_bracket(0, &mut scanner, &mut prev_node) {
-                        println!("{:?}", atomexpr);
-                        let node_index = self.nodes.len();
-                        let bexpr = if atomexpr.expr_type == ExprType::AeAromatic {ExprType::BeArom} else {ExprType::BeSingle};
-                        self.nodes.push(TreeNode { 
-                            op_code: OpCode::SeedAtom, 
-                            data: atomexpr, 
-                            src: prev_node.unwrap_or(node_index), 
-                            dst: None,
-                            nbrs: Some(vec![]),
-                            visit: false 
-                        });
-                        prev_node = Some(node_index);
-                        self.nodes.push(TreeNode { 
-                            op_code: OpCode::GrowBond, 
-                            data: Expr { 
-                                expr_type: bexpr, 
-                                val: None, 
-                                left: None, 
-                                right: None 
-                            }, 
-                            src: node_index + 1, 
-                            dst: None, 
-                            nbrs: None, 
-                            visit: false 
-                        });
-                    }
-                },
-                Some(']') => {
-                    scanner.pop();
-                },
+
+                // ── Atom (any non-bond, non-branch, non-ring token) ──────────
                 _ => {
-                    // Parse implicit atoms
-                    let atom_expr = self.parse_atom_expr(&mut scanner, &mut prev_node);
-                    let node_index = self.nodes.len();
-                    self.nodes.push(TreeNode { 
-                        op_code: if prev_node.is_some() {OpCode::SamePart} else {OpCode::SeedAtom}, 
-                        data: atom_expr?, 
-                        src: node_index, 
-                        dst: None, 
-                        nbrs: Some(Vec::new()), 
-                        visit: false 
+                    let atom_expr = parse_atom_expr(&mut scanner)?;
+                    let atom_idx = self.nodes.len();
+
+                    self.nodes.push(TreeNode {
+                        op_code: if prev_atom.is_some() {
+                            OpCode::SamePart
+                        } else {
+                            OpCode::SeedAtom
+                        },
+                        data: atom_expr,
+                        src: atom_idx,
+                        dst: None,
+                        nbrs: Some(Vec::new()),
+                        visit: false,
                     });
-                    if scanner.is_done() { break }
-                    let bexpr = Expr {
-                        expr_type: ExprType::BeSingle ,
-                        val: None,
-                        left: None,
-                        right: None,
-                    };
-                    let bond_index = self.nodes.len();
-                    self.nodes.push(TreeNode { 
-                        op_code: OpCode::GrowBond, 
-                        data: bexpr, 
-                        src: prev_node.unwrap_or(node_index), 
-                        dst: Some(node_index),
-                        nbrs: None,
-                        visit: false 
-                    });
-                    // Update the previous atom's nbrs
-                    if let Some(prev) = prev_node {
-                        if let Some(nbrs) = &mut self.nodes[prev].nbrs {
-                            nbrs.push(bond_index);
-                        }
+
+                    // Wire up the bond from the previous atom
+                    if let Some(last_atom) = prev_atom {
+                        let bond_type = implicit_bond.take().unwrap_or(ExprType::BeDefault);
+                        let bond_idx = self.nodes.len();
+
+                        self.nodes.push(TreeNode {
+                            op_code: OpCode::GrowBond,
+                            data: Expr {
+                                expr_type: bond_type,
+                                val: None,
+                                left: None,
+                                right: None,
+                            },
+                            src: last_atom,
+                            dst: Some(atom_idx),
+                            nbrs: None,
+                            visit: false,
+                        });
+
+                        // Register bond in both atom's neighbour lists
+                        self.nodes[last_atom].nbrs.as_mut().unwrap().push(bond_idx);
+                        self.nodes[atom_idx].nbrs.as_mut().unwrap().push(bond_idx);
+                    } else {
+                        self.root = atom_idx;
                     }
-                    // Update the current atom's nbrs
-                    if let Some(nbrs) = &mut self.nodes[node_index].nbrs {
-                        nbrs.push(bond_index);
-                    }
-                    prev_node = Some(node_index);
+
+                    prev_atom = Some(atom_idx);
                 }
             }
-            if scanner.is_done() { break }
         }
         Ok(())
     }
+
+    fn handle_ring_closure(
+        &mut self,
+        digit: u8,
+        prev_atom: Option<usize>,
+        ring_closures: &mut HashMap<u8, usize>,
+    ) -> Result<(), Error> {
+        let curr_atom = prev_atom.ok_or(Error::EndOfLine)?;
+
+        if let Some(open_atom) = ring_closures.remove(&digit) {
+            let ring_bond_idx = self.nodes.len();
+            self.nodes.push(TreeNode {
+                op_code: OpCode::CloseRing,
+                data: Expr {
+                    expr_type: ExprType::BeAny,
+                    val: None,
+                    left: None,
+                    right: None,
+                },
+                src: open_atom,
+                dst: Some(curr_atom),
+                nbrs: None,
+                visit: false,
+            });
+            self.nodes[open_atom]
+                .nbrs
+                .as_mut()
+                .unwrap()
+                .push(ring_bond_idx);
+            self.nodes[curr_atom]
+                .nbrs
+                .as_mut()
+                .unwrap()
+                .push(ring_bond_idx);
+        } else {
+            ring_closures.insert(digit, curr_atom);
+        }
+        Ok(())
+    }
+
     pub fn match_mol(&self, molecule: &Molecule) -> bool {
-        let mut matcher = SmartsMatch::new(&self, molecule);
-        matcher.match_smarts()
+        SmartsMatch::new(self, molecule).match_smarts()
     }
 }
+
+// ────────────────────────────────────────────────────
+// Substructure matcher
+// ────────────────────────────────────────────────────
 
 struct SmartsMatch<'a> {
     pattern: &'a SmartsPattern,
@@ -546,11 +841,12 @@ struct SmartsMatch<'a> {
 
 impl<'a> SmartsMatch<'a> {
     fn new(pattern: &'a SmartsPattern, molecule: &'a Molecule) -> Self {
+        let n = pattern.nodes.len();
         SmartsMatch {
             pattern,
             molecule,
-            atom_mapping: vec![None; pattern.nodes.len()],
-            bond_mapping: vec![None; pattern.nodes.len()],
+            atom_mapping: vec![None; n],
+            bond_mapping: vec![None; n],
         }
     }
 
@@ -562,21 +858,37 @@ impl<'a> SmartsMatch<'a> {
         if op_index == self.pattern.nodes.len() {
             return true;
         }
-
         let node = &self.pattern.nodes[op_index];
         match node.op_code {
-            OpCode::SeedAtom => self.seed_atom(op_index),
-            OpCode::GrowBond => self.grow_bond(op_index),
+            OpCode::SeedAtom | OpCode::SamePart => self.seed_atom(op_index),
+            OpCode::GrowBond => {
+                // If src atom isn't mapped yet, skip this bond node
+                if self.atom_mapping[node.src].is_none() {
+                    return self.match_recursive(op_index + 1);
+                }
+                self.grow_bond(op_index)
+            }
             OpCode::CloseRing => self.close_ring(op_index),
-            // Other OpCodes
+            OpCode::DiffPart => self.match_recursive(op_index + 1),
             _ => false,
         }
     }
 
     fn seed_atom(&mut self, op_index: usize) -> bool {
-        for (mol_atom_idx, mol_atom) in self.molecule.atoms.iter().enumerate() {
-            if eval_atom_expr(&self.pattern.nodes[op_index].data, mol_atom) {
-                self.atom_mapping[op_index] = Some(mol_atom_idx);
+        // Already placed by a grow_bond call — just advance
+        if self.atom_mapping[op_index].is_some() {
+            return self.match_recursive(op_index + 1);
+        }
+
+        for mol_idx in 0..self.molecule.atoms.len() {
+            if self.atom_mapping.iter().any(|&m| m == Some(mol_idx)) {
+                continue;
+            }
+            if eval_atom_expr(
+                &self.pattern.nodes[op_index].data,
+                &self.molecule.atoms[mol_idx],
+            ) {
+                self.atom_mapping[op_index] = Some(mol_idx);
                 if self.match_recursive(op_index + 1) {
                     return true;
                 }
@@ -588,24 +900,58 @@ impl<'a> SmartsMatch<'a> {
 
     fn grow_bond(&mut self, op_index: usize) -> bool {
         let node = &self.pattern.nodes[op_index];
-        let qry_beg = node.src;
-        let qry_end = op_index;
+        let qry_src = node.src;
+        let qry_dst = match node.dst {
+            Some(d) => d,
+            None => return self.match_recursive(op_index + 1),
+        };
 
-        if let Some(mol_beg) = self.atom_mapping[qry_beg] {
-            for (mol_bond_idx, mol_bond) in self.molecule.bonds.iter().enumerate() {
-                if mol_bond.source == mol_beg || mol_bond.dest == mol_beg {
-                    let mol_end = if mol_bond.source == mol_beg { mol_bond.dest } else { mol_bond.source };
-                    if eval_atom_expr(&self.pattern.nodes[qry_end].data, &self.molecule.atoms[mol_end])
-                        && eval_bond_expr(&node.data, mol_bond) {
-                        self.atom_mapping[qry_end] = Some(mol_end);
-                        self.bond_mapping[op_index] = Some(mol_bond_idx);
-                        if self.match_recursive(op_index + 1) {
-                            return true;
-                        }
-                        self.atom_mapping[qry_end] = None;
-                        self.bond_mapping[op_index] = None;
-                    }
+        let mol_src = match self.atom_mapping[qry_src] {
+            Some(idx) => idx,
+            None => return false,
+        };
+
+        // ── NEW: if dst atom already placed, just verify the bond exists ──
+        if let Some(mol_dst) = self.atom_mapping[qry_dst] {
+            return if let Some(mol_bond) = self.molecule.get_bond(mol_src, mol_dst) {
+                if eval_bond_expr(&node.data, mol_bond) {
+                    self.match_recursive(op_index + 1)
+                } else {
+                    false
                 }
+            } else {
+                false
+            };
+        }
+
+        // ── EXISTING: dst not yet placed, try all neighbours ──
+        for bond_idx in 0..self.molecule.bonds.len() {
+            let mol_bond = &self.molecule.bonds[bond_idx];
+            let other = if mol_bond.source == mol_src {
+                mol_bond.dest
+            } else if mol_bond.dest == mol_src {
+                mol_bond.source
+            } else {
+                continue;
+            };
+
+            if self.atom_mapping.iter().any(|&m| m == Some(other)) {
+                continue;
+            }
+
+            if eval_bond_expr(&node.data, mol_bond)
+                && eval_atom_expr(
+                    &self.pattern.nodes[qry_dst].data,
+                    &self.molecule.atoms[other],
+                )
+            {
+                self.atom_mapping[qry_dst] = Some(other);
+                self.bond_mapping[op_index] = Some(bond_idx);
+                if self.match_recursive(op_index + 1) {
+                    return true;
+                }
+                self.atom_mapping[qry_dst] = None;
+                self.bond_mapping[op_index] = None;
             }
         }
         false
@@ -613,18 +959,26 @@ impl<'a> SmartsMatch<'a> {
 
     fn close_ring(&mut self, op_index: usize) -> bool {
         let node = &self.pattern.nodes[op_index];
-        let qry_beg = node.src;
-        let qry_end = op_index;
+        let (Some(mol_src), Some(mol_dst)) = (
+            self.atom_mapping[node.src],
+            self.atom_mapping[node.dst.unwrap_or(0)],
+        ) else {
+            return false;
+        };
 
-        if let (Some(mol_beg), Some(mol_end)) = (self.atom_mapping[qry_beg], self.atom_mapping[qry_end]) {
-            if let Some(mol_bond) = self.molecule.get_bond(mol_beg, mol_end) {
-                if eval_bond_expr(&node.data, mol_bond) {
-                    self.bond_mapping[op_index] = Some(self.molecule.bonds.iter().position(|b| b == mol_bond).unwrap());
-                    if self.match_recursive(op_index + 1) {
-                        return true;
-                    }
-                    self.bond_mapping[op_index] = None;
+        if let Some(mol_bond) = self.molecule.get_bond(mol_src, mol_dst) {
+            if eval_bond_expr(&node.data, mol_bond) {
+                let bond_pos = self
+                    .molecule
+                    .bonds
+                    .iter()
+                    .position(|b| b == mol_bond)
+                    .unwrap();
+                self.bond_mapping[op_index] = Some(bond_pos);
+                if self.match_recursive(op_index + 1) {
+                    return true;
                 }
+                self.bond_mapping[op_index] = None;
             }
         }
         false

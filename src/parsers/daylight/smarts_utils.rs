@@ -1,10 +1,8 @@
 use super::smarts_defs::{Expr, ExprType};
 use crate::{
+    core::configuration::Configuration,
     core::defs::{Atom, Bond},
-    parsers::{
-        error::Error,
-        scanner::Scanner,
-    },
+    parsers::scanner::Scanner,
 };
 
 pub fn parse_primitive_bond_types(scanner: &mut Scanner) -> Expr {
@@ -60,7 +58,10 @@ pub fn eval_atom_expr(expr: &Expr, atom: &Atom) -> bool {
             ExprType::AeAliphatic => return !atom.aromatic,
             ExprType::AeCyclic => return atom.ring,
             ExprType::AeAcyclic => return !atom.ring,
-            ExprType::AeMass => return current_expr.val == Some(atom.isotope as i8),
+            ExprType::AeMass => {
+                // val=0 means "no isotope specified", i.e. isotope == 0
+                return current_expr.val == Some(atom.isotope as i8);
+            }
             ExprType::AeElem => return current_expr.val == Some(atom.element as i8),
             ExprType::AeAromelem => {
                 return current_expr.val == Some(atom.element as i8) && atom.aromatic
@@ -75,9 +76,11 @@ pub fn eval_atom_expr(expr: &Expr, atom: &Atom) -> bool {
             }
             ExprType::AeCharge => return current_expr.val == Some(atom.f_charge),
             ExprType::AeConnect => {
-                // Assuming we have a method to get total degree
-                // return current_expr.val == Some(atom.get_total_degree() as i8);
+                // Total number of heavy-atom bonds (degree), not counting implicit H
+                let degree = atom.outgoing_bond.len() as i8;
+                return current_expr.val == Some(degree);
             }
+
             ExprType::AeDegree => return current_expr.val == Some(atom.outgoing_bond.len() as i8),
             ExprType::AeImplicit => {
                 // Assuming we have a method to get implicit hydrogen count
@@ -95,7 +98,14 @@ pub fn eval_atom_expr(expr: &Expr, atom: &Atom) -> bool {
                 // Assuming we have a method to get total valence
                 // return current_expr.val == Some(atom.get_total_valence() as i8);
             }
-            ExprType::AeChiral => return true, // Always return true and check later
+            ExprType::AeChiral => {
+                return match current_expr.val {
+                    // ← fix
+                    Some(1) => atom.configuration == Some(Configuration::TH1),
+                    Some(2) => atom.configuration == Some(Configuration::TH2),
+                    _ => true,
+                };
+            }
             ExprType::AeHyb => {
                 // Assuming we have a method to get hybridization
                 // return current_expr.val == Some(atom.get_hyb() as i8);
