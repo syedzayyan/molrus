@@ -1,11 +1,16 @@
-use std::{fs::File, io::{self, BufRead, BufReader}};
+use std::{
+    fs::File,
+    io::{self, BufRead, BufReader},
+};
 
 // Honestly Just Copied from CDK
-use crate::core::{defs::{Atom, Axialness, Bond}, molecule::Molecule};
+use crate::core::{
+    defs::{Atom, Axialness, Bond},
+    molecule::Molecule,
+};
 use std::str::FromStr;
 
-
-// Just ChatGPT Code with minimal Validation. 
+// Just ChatGPT Code with minimal Validation.
 pub fn read_sdf(file_path: &str) -> io::Result<Vec<Molecule>> {
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
@@ -19,8 +24,10 @@ pub fn read_sdf(file_path: &str) -> io::Result<Vec<Molecule>> {
         }
 
         let mut molecule = Molecule::new();
-        if let Some(line) = lines.next() { line?; } // Skip line 2
-        // if let Some(line) = lines.next()
+        if let Some(line) = lines.next() {
+            line?;
+        } // Skip line 2
+          // if let Some(line) = lines.next()
 
         if let Some(line) = lines.next() {
             let line = line?;
@@ -82,7 +89,9 @@ pub fn read_sdf(file_path: &str) -> io::Result<Vec<Molecule>> {
                 }
 
                 if line.starts_with("> ") {
-                    if let Some(_property_name) = line.split('<').nth(1).and_then(|s| s.split('>').next()) {
+                    if let Some(_property_name) =
+                        line.split('<').nth(1).and_then(|s| s.split('>').next())
+                    {
                         let mut property_value = String::new();
                         while let Some(line) = lines.next() {
                             let line = line?;

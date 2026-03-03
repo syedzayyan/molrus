@@ -26,7 +26,7 @@ pub struct Atom {
 }
 
 impl Atom {
-    pub fn add_to_bond_list(&mut self, bond: BondIndex){
+    pub fn add_to_bond_list(&mut self, bond: BondIndex) {
         self.outgoing_bond.push(bond)
     }
     pub fn aromatic_reverse(&mut self) {

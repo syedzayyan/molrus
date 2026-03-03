@@ -1,4 +1,7 @@
-use crate::{core::defs::{Atom, Axialness}, parsers::{elements::read_symbol, error::Error, scanner::Scanner}};
+use crate::{
+    core::defs::{Atom, Axialness},
+    parsers::{elements::read_symbol, error::Error, scanner::Scanner},
+};
 
 use super::config::read_configuration;
 

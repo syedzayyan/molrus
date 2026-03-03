@@ -21,7 +21,11 @@ impl Molecule {
 
             for &bond_index in &self.atoms[current_atom].outgoing_bond {
                 let bond = &self.bonds[bond_index];
-                let next_atom = if bond.source == current_atom { bond.dest } else { bond.source };
+                let next_atom = if bond.source == current_atom {
+                    bond.dest
+                } else {
+                    bond.source
+                };
                 if !visited[next_atom] {
                     stack.push((next_atom, Some(bond)));
                 }

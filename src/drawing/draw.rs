@@ -8,7 +8,7 @@
 // fn atom_to_svg(atom: &Atom, index: usize) -> String {
 //     format!(
 //         r#"<circle cx="{x}" cy="{y}" r="5" fill="black" id="atom-{index}" />"#,
-//         x = index * 20 + 10, 
+//         x = index * 20 + 10,
 //         y = 20,
 //         index = index
 //     )
@@ -27,11 +27,11 @@
 // pub fn draw_molecule(molecule: &Molecule) -> String {
 //     let mut svg_content = String::new();
 //     svg_content.push_str(SVG_HEADER);
-    
+
 //     for (index, atom) in molecule.atoms.iter().enumerate() {
 //         svg_content.push_str(&atom_to_svg(atom, index));
 //     }
-    
+
 //     for bond in &molecule.bonds {
 //         svg_content.push_str(&bond_to_svg(
 //             bond,
@@ -39,7 +39,7 @@
 //             bond.target
 //         ));
 //     }
-    
+
 //     svg_content.push_str(SVG_FOOTER);
 //     svg_content
 // }

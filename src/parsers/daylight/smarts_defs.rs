@@ -18,7 +18,7 @@ pub enum ExprType {
     AeAndhi,         // AND logical operation, high priority
     AeAndlo,         // AND logical operation, low priority
     AeOr,            // OR logical operation
-    AeRecur,         // Recursive condition 
+    AeRecur,         // Recursive condition
     AeNot,           // NOT logical operation
     AeAromatic,      // Aromatic atom
     AeAliphatic,     // Aliphatic (non-aromatic) atom
@@ -42,23 +42,23 @@ pub enum ExprType {
     AlClockwise,     // Clockwise chiral configuration
     AlAnticlockwise, // Anticlockwise chiral configuration
     AlUnspecified,   // Unspecified chirality
-    
-    BeAndhi,         // AND logical operation, high priority
-    BeAndlo,         // AND logical operation, low priority
-    BeOr,            // OR logical operation
-    BeNot,           // NOT logical operation
-    BeAny,           // Any bond type
-    BeDefault,       // Default bond type
-    BeSingle,        // Single bond
-    BeDouble,        // Double bond
-    BeTriple,        // Triple bond
-    BeQuad,          // Quadruple bond
-    BeArom,          // Aromatic bond
-    BeRing,          // Ring bond
-    BeUp,            // Upward bond (stereochemistry)
-    BeDown,          // Downward bond (stereochemistry)
-    BeUpunspec,      // Upward bond, unspecified stereochemistry
-    BeDownunspec,    // Downward bond, unspecified stereochemistry
+
+    BeAndhi,      // AND logical operation, high priority
+    BeAndlo,      // AND logical operation, low priority
+    BeOr,         // OR logical operation
+    BeNot,        // NOT logical operation
+    BeAny,        // Any bond type
+    BeDefault,    // Default bond type
+    BeSingle,     // Single bond
+    BeDouble,     // Double bond
+    BeTriple,     // Triple bond
+    BeQuad,       // Quadruple bond
+    BeArom,       // Aromatic bond
+    BeRing,       // Ring bond
+    BeUp,         // Upward bond (stereochemistry)
+    BeDown,       // Downward bond (stereochemistry)
+    BeUpunspec,   // Upward bond, unspecified stereochemistry
+    BeDownunspec, // Downward bond, unspecified stereochemistry
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -72,7 +72,7 @@ pub struct Expr {
 pub struct TreeNode {
     pub op_code: OpCode,
     pub data: Expr,
-    pub src: usize, 
+    pub src: usize,
     pub dst: Option<usize>, // Option for bonds as atoms don't really have a dst
     pub nbrs: Option<Vec<usize>>, // None for Bond Nodes
     pub visit: bool,
@@ -83,5 +83,5 @@ pub struct SmartsPattern {
     pub root: usize,
     pub smarts_string: String,
     pub chirality: bool,
-    pub recursion : bool
+    pub recursion: bool,
 }
